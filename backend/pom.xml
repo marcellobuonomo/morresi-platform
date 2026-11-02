@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.morresi</groupId>
-	<artifactId>booking</artifactId>
+	<artifactId>morresi-platform</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>booking</name>
-	<description>Booking platform for salons and spas</description>
+	<name>morresi-platform</name>
+	<description>Management platform for salons and spas: booking, clients, sales, staff analytics</description>
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.2.0</springdoc.version>

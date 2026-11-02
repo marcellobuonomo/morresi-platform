@@ -3,15 +3,15 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: booking
-      POSTGRES_USER: booking
-      POSTGRES_PASSWORD: booking
+      POSTGRES_DB: morresi
+      POSTGRES_USER: morresi
+      POSTGRES_PASSWORD: morresi
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U booking -d booking"]
+      test: ["CMD-SHELL", "pg_isready -U morresi -d morresi"]
       interval: 5s
       timeout: 3s
       retries: 10

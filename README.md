@@ -1,6 +1,7 @@
-# Booking Platform
+# Morresi Platform
 
-Piattaforma SaaS multi-tenant per la gestione di appuntamenti, clienti, vendite e pagamenti per saloni e spa.
+Piattaforma SaaS multi-tenant per saloni e spa: prenotazioni online e agenda, anagrafica clienti, vendite e pagamenti,
+magazzino, e un'area di amministrazione con statistiche (rendimento dei collaboratori, clienti top per spesa, retention).
 La specifica completa (dominio, modello dati, regole di business, piano a fasi) è in [DATA_MODEL.md](DATA_MODEL.md).
 
 ## Struttura
@@ -33,7 +34,7 @@ cd backend
 La connessione al DB si configura con le variabili `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
 (default allineati a `docker-compose.yml`).
 
-In alternativa, senza docker compose, `TestBookingApplication` (in `src/test`) avvia l'app
+In alternativa, senza docker compose, `TestMorresiPlatformApplication` (in `src/test`) avvia l'app
 con un Postgres effimero via Testcontainers.
 
 ## Test
