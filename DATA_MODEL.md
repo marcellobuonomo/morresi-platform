@@ -128,19 +128,35 @@ CREATE TABLE user_token (
   used_at     timestamptz
 );
 
--- Tenant
-CREATE TABLE business (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  slug text NOT NULL UNIQUE,              -- URL pubblica di prenotazione
-  legal_name text, vat_number text, tax_code text,
-  country char(2) NOT NULL DEFAULT 'IT',
-  currency char(3) NOT NULL DEFAULT 'EUR',
-  default_timezone text NOT NULL DEFAULT 'Europe/Rome',
-  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','CLOSED')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  version bigint NOT NULL DEFAULT 0
+-- ✅ Approvato (2026-11-02)
+-- [std] Dati e regole del salone: UNA sola riga, creata dalla migrazione; l'admin può solo leggerla/modificarla.
+-- Sostituisce business + location. È ciò che si cambia replicando l'app per un altro salone.
+CREATE TABLE salon_settings (
+  -- Identità
+  name                       text NOT NULL,          -- insegna
+  legal_name                 text,
+  vat_number                 text,
+  tax_code                   text,
+  -- Contatti e indirizzo
+  address_line               text,
+  city                       text,
+  postal_code                text,
+  province                   char(2),
+  phone                      text,
+  email                      text,
+  -- Localizzazione
+  timezone                   text NOT NULL DEFAULT 'Europe/Rome',
+  currency                   char(3) NOT NULL DEFAULT 'EUR',
+  -- Regole di prenotazione online
+  online_booking_enabled     boolean NOT NULL DEFAULT true,
+  slot_interval_minutes      int NOT NULL DEFAULT 15 CHECK (slot_interval_minutes IN (5,10,15,20,30,60)),
+                                                     -- passo degli orari di inizio proposti, NON la durata
+  min_notice_minutes         int NOT NULL DEFAULT 60,   -- anticipo minimo per prenotare
+  max_advance_days           int NOT NULL DEFAULT 90,   -- orizzonte prenotabile
+  cancellation_window_hours  int NOT NULL DEFAULT 24,   -- disdetta più tardi = tardiva
+  -- Anti no-show
+  max_open_online_bookings   int NOT NULL DEFAULT 2,    -- appuntamenti futuri prenotabili online per cliente
+  no_show_block_threshold    int NOT NULL DEFAULT 3     -- dopo N assenze niente prenotazione online
 );
 
 -- ❌ business_member eliminata (single-tenant): il ruolo è su app_user.
@@ -153,38 +169,27 @@ CREATE TABLE business (
 --  - telefono verificato con codice OTP via WhatsApp, fallback SMS, tramite provider esterno
 --    (es. Twilio Verify): nessuna tabella OTP nel nostro DB, solo client.phone_verified_at.
 
--- [std] Sede
-CREATE TABLE location (
-  name text NOT NULL,
-  address_line1 text, address_line2 text, city text, postal_code text, province text,
-  country char(2) NOT NULL DEFAULT 'IT',
-  latitude numeric(9,6), longitude numeric(9,6),
-  timezone text NOT NULL,                 -- IANA, es. Europe/Rome
-  phone text, email text,
-  online_booking_enabled boolean NOT NULL DEFAULT true,
-  slot_interval_minutes int NOT NULL DEFAULT 15 CHECK (slot_interval_minutes IN (5,10,15,20,30,60)),
-  min_notice_minutes int NOT NULL DEFAULT 60,         -- anticipo minimo per prenotare
-  max_advance_days int NOT NULL DEFAULT 90,           -- orizzonte prenotabile
-  cancellation_window_hours int NOT NULL DEFAULT 24,  -- oltre questa soglia: cancellazione tardiva
-  active boolean NOT NULL DEFAULT true,
-  deleted_at timestamptz
+-- ✅ Approvato (2026-11-02)
+-- [std] Fasce di apertura settimanali, senza vincoli: più fasce per giorno, 24h, giorni senza righe = chiuso.
+-- Minuti dall'inizio del giorno (0..1440) per poter esprimere "fino alle 24:00" (LocalTime non lo supporta).
+-- Apertura a cavallo della mezzanotte = due righe consecutive (es. ven 1320-1440 + sab 0-120);
+-- il motore di disponibilità unisce le fasce contigue. Il backend rifiuta fasce sovrapposte nello stesso giorno.
+CREATE TABLE opening_hours (
+  weekday        smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),   -- ISO: 1 = lunedì
+  opens_minute   int NOT NULL CHECK (opens_minute BETWEEN 0 AND 1439),
+  closes_minute  int NOT NULL CHECK (closes_minute BETWEEN 1 AND 1440),
+  CHECK (closes_minute > opens_minute)
 );
 
--- [std] Orari di apertura (più fasce per giorno ammesse, es. pausa pranzo)
-CREATE TABLE location_opening_hours (
-  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
-  weekday smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),  -- ISO: 1=lunedì
-  opens_at time NOT NULL,
-  closes_at time NOT NULL,
-  CHECK (closes_at > opens_at)
-);
-
--- [std] Chiusure straordinarie / festivi
-CREATE TABLE location_closure (
-  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
-  starts_on date NOT NULL, ends_on date NOT NULL,
-  reason text,
-  CHECK (ends_on >= starts_on)
+-- ✅ Approvato (2026-11-02)
+-- [std] Eccezioni agli orari settimanali su intervalli liberi (ore, mezze giornate, settimane).
+-- CLOSED = chiusura straordinaria, OPEN = apertura straordinaria. In caso di sovrapposizione vince CLOSED.
+CREATE TABLE schedule_exception (
+  type       text NOT NULL CHECK (type IN ('CLOSED','OPEN')),
+  starts_at  timestamptz NOT NULL,
+  ends_at    timestamptz NOT NULL,
+  reason     text,
+  CHECK (ends_at > starts_at)
 );
 ```
 
@@ -674,7 +679,7 @@ GET  /public/appointments/{token}   PATCH/DELETE    gestione da parte del client
 
 ## 10. Decisioni aperte (da chiedermi prima di implementare)
 
-1. **Overbooking**: consentito dal backoffice? Se sì, come modellarlo (flag per operatore vs. deroga per singola riga)?
+1. ~~**Overbooking**~~ ✅ Deciso (2026-11-02): **solo ADMIN** può inserire un appuntamento sovrapposto (es. cliente che chiama a disponibilità esaurite). L'appuntamento forzato deve **restare occupato** per la prenotazione online (non usare `blocking = false`). Modellazione da definire con `appointment`.
 2. **Tempi di posa/attesa** (es. colore in posa): l'operatore è libero durante `processing_minutes`? Se sì, la riga va spezzata in più intervalli.
 3. **Acconti/caparre** online e politica di rimborso.
 4. **Fatturazione/fiscalità** italiana: integrare un provider esterno o rimandare?
