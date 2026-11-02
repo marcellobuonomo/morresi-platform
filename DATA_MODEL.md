@@ -1,0 +1,660 @@
+# Booking Platform per Saloni/Spa — Specifica Modello Dati
+
+> Documento di riferimento per Claude Code. Descrive dominio, modello dati PostgreSQL, regole di business e piano di implementazione di una piattaforma SaaS multi-tenant di gestione appuntamenti, clienti, vendite e pagamenti per attività di beauty & wellness (parrucchieri, centri estetici, barbieri, spa).
+
+## 0. Come lavorare (istruzioni per Claude Code)
+
+1. **Prima di scrivere codice**, leggi tutto il documento e proponi un piano per la **Fase 0 e Fase 1** (sezione 9). Attendi conferma.
+2. Lavora **una fase alla volta**. Ogni fase deve chiudersi con: migrazioni Flyway, entità/repository, service, controller REST, test (unit + integration con Testcontainers), OpenAPI aggiornato.
+3. Il DDL qui sotto è **pseudo-SQL di riferimento**: genera migrazioni Flyway reali, con indici e vincoli coerenti. Se trovi incongruenze o scelte migliori, **segnalale prima di deviare**.
+4. Non copiare asset, testi, loghi, nomi commerciali o UI di prodotti esistenti. Il prodotto ha brand e design propri. Le funzionalità sono implementate da specifica funzionale, non da analisi di software di terzi.
+5. Codice e identificatori in **inglese**; commenti e documentazione possono essere in italiano.
+
+## 1. Stack e convenzioni
+
+| Area | Scelta |
+|---|---|
+| Backend | Java 21, Spring Boot 3.x, Spring Web, Spring Data JPA (Hibernate), Spring Security (JWT / OAuth2 resource server), Bean Validation |
+| Architettura | **Monolite modulare** (package per bounded context, dipendenze unidirezionali; valutare Spring Modulith) |
+| DB | PostgreSQL 16+, migrazioni **Flyway**, test con **Testcontainers** |
+| API | REST + OpenAPI (springdoc), errori in formato RFC 7807 (`ProblemDetail`) |
+| Frontend | React + TypeScript + Vite + TanStack Query *(sostituibile con Angular: modello dati e API non cambiano)* |
+| Build | Maven o Gradle, Docker Compose per dev (postgres, mailhog) |
+
+### Convenzioni DB
+
+- **PK**: `uuid` (`gen_random_uuid()`); in Java `UUID`. Considerare UUIDv7 per località d'indice.
+- **Tempo**: sempre `timestamptz` (UTC). Ogni `location` ha un `timezone` IANA; conversione solo ai bordi (API/UI). Attenzione ai cambi DST nel calcolo slot.
+- **Denaro**: `bigint` in **unità minori** (centesimi) + valuta a livello `business.currency` (ISO 4217). Mai `float/double`.
+- **Enum**: `text` + `CHECK` (non enum nativi Postgres), `@Enumerated(EnumType.STRING)` in JPA.
+- **Multi-tenancy**: schema condiviso, colonna `business_id` su tutte le tabelle tenant. Ogni query applica il filtro tenant (Hibernate filter o `@TenantId`); valutare **Row Level Security** come difesa in profondità.
+- **Colonne standard `[std]`** (omesse nel DDL sotto per brevità, da includere in ogni tabella tenant):
+  `id uuid PK`, `business_id uuid NOT NULL FK business`, `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`, `version bigint NOT NULL DEFAULT 0` (optimistic locking).
+- **Soft delete** (`deleted_at timestamptz`) solo dove indicato (client, service, product, staff); gli indici univoci diventano parziali `WHERE deleted_at IS NULL`.
+- **Snapshot**: righe di appuntamento e vendita copiano nome/prezzo/IVA al momento della creazione (il listino può cambiare, lo storico no).
+- **Privacy/GDPR (UE/Italia)**: consensi espliciti e datati, esportazione e cancellazione/anonimizzazione dati cliente, retention definita, nessun dato sanitario in chiaro nelle note senza base giuridica.
+
+## 2. Mappa dei moduli
+
+```
+identity     → app_user, business_member, auth
+tenancy      → business, location, opening hours
+staff        → staff, shifts, time blocks
+catalog      → category, service, variant, tax rate, resource
+clients      → client, tags, consents, notes
+booking      → appointment, items, availability engine
+sales        → sale, items, payments, refunds, numbering
+inventory    → product, supplier, stock movements
+loyalty      → voucher, package/membership (Fase 3+)
+notifications→ templates, log, outbox
+reviews      → review (Fase 3+)
+platform     → audit_log, outbox_event, idempotency_key
+```
+
+## 3. Diagramma ER (semplificato)
+
+```mermaid
+erDiagram
+  BUSINESS ||--o{ LOCATION : has
+  BUSINESS ||--o{ BUSINESS_MEMBER : has
+  APP_USER ||--o{ BUSINESS_MEMBER : joins
+  BUSINESS ||--o{ STAFF : employs
+  BUSINESS ||--o{ CLIENT : has
+  BUSINESS ||--o{ SERVICE : offers
+  SERVICE_CATEGORY ||--o{ SERVICE : groups
+  SERVICE ||--|{ SERVICE_VARIANT : has
+  STAFF }o--o{ LOCATION : works_at
+  STAFF ||--o{ STAFF_SHIFT : has
+  STAFF ||--o{ STAFF_TIME_BLOCK : has
+  LOCATION ||--o{ APPOINTMENT : hosts
+  CLIENT ||--o{ APPOINTMENT : books
+  APPOINTMENT ||--|{ APPOINTMENT_ITEM : contains
+  STAFF ||--o{ APPOINTMENT_ITEM : performs
+  SERVICE_VARIANT ||--o{ APPOINTMENT_ITEM : booked_as
+  APPOINTMENT ||--o| SALE : billed_by
+  SALE ||--|{ SALE_ITEM : contains
+  SALE ||--o{ PAYMENT : paid_by
+  PAYMENT ||--o{ REFUND : refunded_by
+  PRODUCT ||--o{ STOCK_MOVEMENT : moves
+  SALE_ITEM }o--o| PRODUCT : sells
+  CLIENT ||--o{ VOUCHER : owns
+  APPOINTMENT ||--o| REVIEW : reviewed_by
+```
+
+## 4. DDL di riferimento
+
+### 4.1 Estensioni
+
+```sql
+CREATE EXTENSION IF NOT EXISTS btree_gist;  -- exclusion constraint su uuid + range
+CREATE EXTENSION IF NOT EXISTS citext;      -- email case-insensitive
+CREATE EXTENSION IF NOT EXISTS pg_trgm;     -- ricerca clienti per nome/telefono
+```
+
+### 4.2 Identità e tenancy
+
+```sql
+-- Account di login globale (titolari, staff, eventualmente consumatori del marketplace)
+CREATE TABLE app_user (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email citext NOT NULL UNIQUE,
+  password_hash text,                     -- null se solo login esterno
+  first_name text, last_name text, phone text,
+  locale text NOT NULL DEFAULT 'it',
+  email_verified_at timestamptz,
+  last_login_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Tenant
+CREATE TABLE business (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  slug text NOT NULL UNIQUE,              -- URL pubblica di prenotazione
+  legal_name text, vat_number text, tax_code text,
+  country char(2) NOT NULL DEFAULT 'IT',
+  currency char(3) NOT NULL DEFAULT 'EUR',
+  default_timezone text NOT NULL DEFAULT 'Europe/Rome',
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','CLOSED')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  version bigint NOT NULL DEFAULT 0
+);
+
+-- [std] Appartenenza utente→business con ruolo (permessi)
+CREATE TABLE business_member (
+  user_id uuid NOT NULL REFERENCES app_user(id),
+  role text NOT NULL CHECK (role IN ('OWNER','ADMIN','MANAGER','STAFF','FRONT_DESK')),
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('INVITED','ACTIVE','DISABLED')),
+  UNIQUE (business_id, user_id)
+);
+
+-- [std] Sede
+CREATE TABLE location (
+  name text NOT NULL,
+  address_line1 text, address_line2 text, city text, postal_code text, province text,
+  country char(2) NOT NULL DEFAULT 'IT',
+  latitude numeric(9,6), longitude numeric(9,6),
+  timezone text NOT NULL,                 -- IANA, es. Europe/Rome
+  phone text, email text,
+  online_booking_enabled boolean NOT NULL DEFAULT true,
+  slot_interval_minutes int NOT NULL DEFAULT 15 CHECK (slot_interval_minutes IN (5,10,15,20,30,60)),
+  min_notice_minutes int NOT NULL DEFAULT 60,         -- anticipo minimo per prenotare
+  max_advance_days int NOT NULL DEFAULT 90,           -- orizzonte prenotabile
+  cancellation_window_hours int NOT NULL DEFAULT 24,  -- oltre questa soglia: cancellazione tardiva
+  active boolean NOT NULL DEFAULT true,
+  deleted_at timestamptz
+);
+
+-- [std] Orari di apertura (più fasce per giorno ammesse, es. pausa pranzo)
+CREATE TABLE location_opening_hours (
+  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
+  weekday smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),  -- ISO: 1=lunedì
+  opens_at time NOT NULL,
+  closes_at time NOT NULL,
+  CHECK (closes_at > opens_at)
+);
+
+-- [std] Chiusure straordinarie / festivi
+CREATE TABLE location_closure (
+  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
+  starts_on date NOT NULL, ends_on date NOT NULL,
+  reason text,
+  CHECK (ends_on >= starts_on)
+);
+```
+
+### 4.3 Staff
+
+```sql
+-- [std] Operatore (può esistere senza account di login)
+CREATE TABLE staff (
+  member_id uuid REFERENCES business_member(id),   -- opzionale
+  display_name text NOT NULL,
+  job_title text, bio text, photo_url text,
+  calendar_color char(7),                          -- es. #FF8800
+  bookable_online boolean NOT NULL DEFAULT true,
+  commission_service_bp int NOT NULL DEFAULT 0,    -- basis points: 1000 = 10%
+  commission_product_bp int NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true,
+  sort_order int NOT NULL DEFAULT 0,
+  deleted_at timestamptz
+);
+
+CREATE TABLE staff_location (
+  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
+  PRIMARY KEY (staff_id, location_id)
+);
+
+-- [std] Turno settimanale ricorrente (valido in un intervallo di date)
+CREATE TABLE staff_shift (
+  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  location_id uuid NOT NULL REFERENCES location(id),
+  weekday smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+  starts_at time NOT NULL, ends_at time NOT NULL,
+  valid_from date NOT NULL DEFAULT current_date,
+  valid_to date,
+  CHECK (ends_at > starts_at)
+);
+
+-- [std] Blocchi di indisponibilità puntuali (ferie, malattia, pausa, formazione)
+CREATE TABLE staff_time_block (
+  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  location_id uuid REFERENCES location(id),        -- null = tutte le sedi
+  type text NOT NULL CHECK (type IN ('TIME_OFF','SICK','BREAK','TRAINING','OTHER')),
+  starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
+  reason text,
+  CHECK (ends_at > starts_at)
+);
+```
+
+### 4.4 Catalogo servizi
+
+```sql
+-- [std]
+CREATE TABLE tax_rate (
+  name text NOT NULL,                              -- es. "IVA 22%"
+  rate_bp int NOT NULL CHECK (rate_bp >= 0),       -- 2200 = 22%
+  prices_include_tax boolean NOT NULL DEFAULT true,
+  active boolean NOT NULL DEFAULT true
+);
+
+-- [std]
+CREATE TABLE service_category (
+  name text NOT NULL, color char(7), sort_order int NOT NULL DEFAULT 0
+);
+
+-- [std]
+CREATE TABLE service (
+  category_id uuid REFERENCES service_category(id),
+  name text NOT NULL,
+  description text,
+  tax_rate_id uuid REFERENCES tax_rate(id),
+  online_bookable boolean NOT NULL DEFAULT true,
+  requires_deposit boolean NOT NULL DEFAULT false,
+  deposit_percent_bp int,
+  active boolean NOT NULL DEFAULT true,
+  sort_order int NOT NULL DEFAULT 0,
+  deleted_at timestamptz
+);
+
+-- [std] Varianti di durata/prezzo (es. "Taglio capelli corti" / "lunghi")
+CREATE TABLE service_variant (
+  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  duration_minutes int NOT NULL CHECK (duration_minutes > 0),
+  price_minor bigint NOT NULL CHECK (price_minor >= 0),
+  price_type text NOT NULL DEFAULT 'FIXED' CHECK (price_type IN ('FIXED','FROM','FREE')),
+  sort_order int NOT NULL DEFAULT 0,
+  active boolean NOT NULL DEFAULT true
+);
+
+-- Chi può erogare cosa, con override opzionali per operatore
+CREATE TABLE service_staff (
+  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  price_override_minor bigint,
+  duration_override_minutes int,
+  PRIMARY KEY (service_id, staff_id)
+);
+
+CREATE TABLE service_location (
+  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
+  PRIMARY KEY (service_id, location_id)
+);
+
+-- [std] Risorse fisiche (poltrona, cabina, lettino) — Fase 2+
+CREATE TABLE resource (
+  location_id uuid NOT NULL REFERENCES location(id),
+  name text NOT NULL, type text,
+  active boolean NOT NULL DEFAULT true
+);
+CREATE TABLE service_resource (
+  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  resource_id uuid NOT NULL REFERENCES resource(id) ON DELETE CASCADE,
+  PRIMARY KEY (service_id, resource_id)
+);
+```
+
+### 4.5 Clienti
+
+```sql
+-- [std]
+CREATE TABLE client (
+  user_id uuid REFERENCES app_user(id),            -- se il cliente ha un account
+  first_name text NOT NULL, last_name text,
+  email citext, phone text,                        -- phone in formato E.164
+  birth_date date,
+  notes text,                                      -- note operative (non sanitarie)
+  marketing_email_consent_at timestamptz,
+  marketing_sms_consent_at timestamptz,
+  source text CHECK (source IN ('WALK_IN','ONLINE','IMPORT','MARKETPLACE','REFERRAL','OTHER')),
+  blocked boolean NOT NULL DEFAULT false,          -- blocco prenotazioni online (no-show ripetuti)
+  no_show_count int NOT NULL DEFAULT 0,
+  deleted_at timestamptz
+);
+CREATE UNIQUE INDEX ux_client_email ON client (business_id, email) WHERE email IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX ix_client_search ON client USING gin ((coalesce(first_name,'')||' '||coalesce(last_name,'')||' '||coalesce(phone,'')) gin_trgm_ops);
+
+-- [std]
+CREATE TABLE client_tag (name text NOT NULL, UNIQUE (business_id, name));
+CREATE TABLE client_tag_assignment (
+  client_id uuid NOT NULL REFERENCES client(id) ON DELETE CASCADE,
+  tag_id uuid NOT NULL REFERENCES client_tag(id) ON DELETE CASCADE,
+  PRIMARY KEY (client_id, tag_id)
+);
+
+-- [std] Storico note
+CREATE TABLE client_note (
+  client_id uuid NOT NULL REFERENCES client(id) ON DELETE CASCADE,
+  author_member_id uuid REFERENCES business_member(id),
+  body text NOT NULL
+);
+```
+
+### 4.6 Prenotazioni (cuore del sistema)
+
+```sql
+-- [std] Appuntamento = contenitore di una o più righe-servizio consecutive/parallele
+CREATE TABLE appointment (
+  location_id uuid NOT NULL REFERENCES location(id),
+  client_id uuid REFERENCES client(id),            -- null = cliente di passaggio senza anagrafica
+  status text NOT NULL DEFAULT 'BOOKED'
+    CHECK (status IN ('BOOKED','CONFIRMED','ARRIVED','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW')),
+  source text NOT NULL DEFAULT 'BACKOFFICE'
+    CHECK (source IN ('BACKOFFICE','ONLINE','MARKETPLACE','PHONE','WALK_IN','API')),
+  starts_at timestamptz NOT NULL,                  -- = min(items.starts_at), denormalizzato
+  ends_at timestamptz NOT NULL,                    -- = max(items.ends_at)
+  client_notes text,                               -- note del cliente in fase di prenotazione
+  internal_notes text,
+  cancelled_at timestamptz,
+  cancelled_by text CHECK (cancelled_by IN ('CLIENT','BUSINESS','SYSTEM')),
+  cancellation_reason text,
+  late_cancellation boolean NOT NULL DEFAULT false,
+  confirmation_token text UNIQUE,                  -- link gestione prenotazione per il cliente
+  created_by_member_id uuid REFERENCES business_member(id),
+  CHECK (ends_at > starts_at)
+);
+CREATE INDEX ix_appt_calendar ON appointment (business_id, location_id, starts_at);
+CREATE INDEX ix_appt_client ON appointment (business_id, client_id, starts_at DESC);
+
+-- [std] Riga-servizio dell'appuntamento
+CREATE TABLE appointment_item (
+  appointment_id uuid NOT NULL REFERENCES appointment(id) ON DELETE CASCADE,
+  service_variant_id uuid NOT NULL REFERENCES service_variant(id),
+  staff_id uuid NOT NULL REFERENCES staff(id),
+  resource_id uuid REFERENCES resource(id),
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz NOT NULL,
+  -- snapshot
+  service_name text NOT NULL, variant_name text,
+  price_minor bigint NOT NULL, discount_minor bigint NOT NULL DEFAULT 0,
+  tax_rate_bp int NOT NULL DEFAULT 0,
+  sort_order int NOT NULL DEFAULT 0,
+  blocking boolean NOT NULL DEFAULT true,          -- false se l'appuntamento è CANCELLED/NO_SHOW
+  CHECK (ends_at > starts_at)
+);
+
+-- Anti-doppia-prenotazione a livello DB: un operatore non può avere due righe bloccanti sovrapposte
+ALTER TABLE appointment_item ADD CONSTRAINT no_staff_overlap
+  EXCLUDE USING gist (staff_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&)
+  WHERE (blocking);
+-- Idem per le risorse fisiche (se valorizzate)
+ALTER TABLE appointment_item ADD CONSTRAINT no_resource_overlap
+  EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&)
+  WHERE (blocking AND resource_id IS NOT NULL);
+
+-- [std]
+CREATE TABLE appointment_status_history (
+  appointment_id uuid NOT NULL REFERENCES appointment(id) ON DELETE CASCADE,
+  from_status text, to_status text NOT NULL,
+  changed_by_member_id uuid REFERENCES business_member(id),
+  note text
+);
+```
+
+### 4.7 Vendite e pagamenti
+
+```sql
+-- [std] Numerazione progressiva per sede/anno (lock di riga su incremento)
+CREATE TABLE sale_sequence (
+  location_id uuid NOT NULL REFERENCES location(id),
+  year int NOT NULL, last_number int NOT NULL DEFAULT 0,
+  PRIMARY KEY (location_id, year)
+);
+
+-- [std] Vendita/scontrino
+CREATE TABLE sale (
+  location_id uuid NOT NULL REFERENCES location(id),
+  appointment_id uuid REFERENCES appointment(id),
+  client_id uuid REFERENCES client(id),
+  number text,                                     -- assegnato al completamento, es. 2026/000123
+  status text NOT NULL DEFAULT 'DRAFT'
+    CHECK (status IN ('DRAFT','COMPLETED','VOIDED','PARTIALLY_REFUNDED','REFUNDED')),
+  subtotal_minor bigint NOT NULL DEFAULT 0,
+  discount_minor bigint NOT NULL DEFAULT 0,
+  tax_minor bigint NOT NULL DEFAULT 0,
+  tip_minor bigint NOT NULL DEFAULT 0,
+  total_minor bigint NOT NULL DEFAULT 0,
+  issued_at timestamptz,
+  created_by_member_id uuid REFERENCES business_member(id),
+  UNIQUE (business_id, location_id, number)
+);
+
+-- [std]
+CREATE TABLE sale_item (
+  sale_id uuid NOT NULL REFERENCES sale(id) ON DELETE CASCADE,
+  item_type text NOT NULL CHECK (item_type IN ('SERVICE','PRODUCT','VOUCHER','PACKAGE','CUSTOM')),
+  appointment_item_id uuid REFERENCES appointment_item(id),
+  product_id uuid REFERENCES product(id),
+  staff_id uuid REFERENCES staff(id),              -- per le commissioni
+  description text NOT NULL,
+  quantity numeric(10,3) NOT NULL DEFAULT 1,
+  unit_price_minor bigint NOT NULL,
+  discount_minor bigint NOT NULL DEFAULT 0,
+  tax_rate_bp int NOT NULL DEFAULT 0,
+  tax_minor bigint NOT NULL DEFAULT 0,
+  total_minor bigint NOT NULL
+);
+
+-- [std]
+CREATE TABLE payment (
+  sale_id uuid NOT NULL REFERENCES sale(id),
+  method text NOT NULL CHECK (method IN ('CASH','CARD_POS','CARD_ONLINE','BANK_TRANSFER','VOUCHER','OTHER')),
+  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCEEDED','FAILED','CANCELLED')),
+  amount_minor bigint NOT NULL CHECK (amount_minor > 0),
+  provider text,                                   -- es. 'stripe'
+  provider_reference text,                         -- payment_intent id
+  paid_at timestamptz
+);
+CREATE UNIQUE INDEX ux_payment_provider_ref ON payment (provider, provider_reference) WHERE provider_reference IS NOT NULL;
+
+-- [std]
+CREATE TABLE refund (
+  payment_id uuid NOT NULL REFERENCES payment(id),
+  amount_minor bigint NOT NULL CHECK (amount_minor > 0),
+  reason text, provider_reference text,
+  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCEEDED','FAILED'))
+);
+```
+
+### 4.8 Prodotti e magazzino
+
+```sql
+-- [std]
+CREATE TABLE supplier (name text NOT NULL, email text, phone text, notes text);
+
+-- [std]
+CREATE TABLE product (
+  supplier_id uuid REFERENCES supplier(id),
+  tax_rate_id uuid REFERENCES tax_rate(id),
+  name text NOT NULL, brand text, sku text, barcode text,
+  price_minor bigint NOT NULL CHECK (price_minor >= 0),
+  cost_minor bigint,
+  track_stock boolean NOT NULL DEFAULT true,
+  low_stock_threshold int,
+  active boolean NOT NULL DEFAULT true,
+  deleted_at timestamptz
+);
+CREATE UNIQUE INDEX ux_product_sku ON product (business_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL;
+
+-- [std] Libro mastro append-only: la giacenza = SUM(delta)
+CREATE TABLE stock_movement (
+  product_id uuid NOT NULL REFERENCES product(id),
+  location_id uuid NOT NULL REFERENCES location(id),
+  delta int NOT NULL CHECK (delta <> 0),
+  reason text NOT NULL CHECK (reason IN ('PURCHASE','SALE','RETURN','ADJUSTMENT','TRANSFER','DAMAGE')),
+  sale_item_id uuid REFERENCES sale_item(id),
+  note text
+);
+CREATE INDEX ix_stock_product_loc ON stock_movement (product_id, location_id);
+```
+
+### 4.9 Buoni, notifiche, recensioni, piattaforma
+
+```sql
+-- [std] Buono regalo / credito prepagato (Fase 3)
+CREATE TABLE voucher (
+  code text NOT NULL, client_id uuid REFERENCES client(id),
+  initial_minor bigint NOT NULL, balance_minor bigint NOT NULL CHECK (balance_minor >= 0),
+  expires_at timestamptz, issued_sale_item_id uuid REFERENCES sale_item(id),
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','EXHAUSTED','EXPIRED','VOIDED')),
+  UNIQUE (business_id, code)
+);
+CREATE TABLE voucher_transaction (  -- [std] ledger append-only
+  voucher_id uuid NOT NULL REFERENCES voucher(id),
+  delta_minor bigint NOT NULL, payment_id uuid REFERENCES payment(id), note text
+);
+
+-- [std]
+CREATE TABLE notification_template (
+  type text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','CANCELLATION','RESCHEDULE','REVIEW_REQUEST','MARKETING')),
+  channel text NOT NULL CHECK (channel IN ('EMAIL','SMS','PUSH')),
+  locale text NOT NULL DEFAULT 'it', subject text, body text NOT NULL,
+  active boolean NOT NULL DEFAULT true,
+  UNIQUE (business_id, type, channel, locale)
+);
+CREATE TABLE notification_log (  -- [std]
+  appointment_id uuid REFERENCES appointment(id), client_id uuid REFERENCES client(id),
+  type text NOT NULL, channel text NOT NULL, recipient text NOT NULL,
+  status text NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','SENT','FAILED','SKIPPED')),
+  scheduled_for timestamptz NOT NULL, sent_at timestamptz,
+  provider_message_id text, error text
+);
+CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
+
+-- [std] Una recensione per appuntamento completato
+CREATE TABLE review (
+  appointment_id uuid NOT NULL UNIQUE REFERENCES appointment(id),
+  client_id uuid REFERENCES client(id),
+  rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment text, business_reply text, published boolean NOT NULL DEFAULT false
+);
+
+-- Piattaforma
+CREATE TABLE audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid, actor_user_id uuid,
+  action text NOT NULL, entity_type text NOT NULL, entity_id uuid,
+  before jsonb, after jsonb, ip inet,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+-- Transactional outbox: eventi di dominio pubblicati in modo affidabile (email, webhook, ecc.)
+CREATE TABLE outbox_event (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid, aggregate_type text NOT NULL, aggregate_id uuid NOT NULL,
+  event_type text NOT NULL, payload jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(), processed_at timestamptz
+);
+CREATE INDEX ix_outbox_pending ON outbox_event (created_at) WHERE processed_at IS NULL;
+CREATE TABLE idempotency_key (  -- per POST di pagamento/prenotazione pubblica
+  key text PRIMARY KEY, request_hash text NOT NULL, response jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+> Nota: `sale_item.product_id` referenzia `product`; ordina le migrazioni di conseguenza (inventory prima di sales, oppure aggiungi la FK in una migrazione successiva).
+
+## 5. Regole di business
+
+### 5.1 Calcolo della disponibilità (availability engine)
+
+La disponibilità **non si salva**: si calcola a richiesta.
+
+Input: `location_id`, lista di servizi richiesti (con variante), data/range, operatore preferito (o "qualsiasi").
+
+1. Parti dagli **orari di apertura** della sede, togli le `location_closure`.
+2. Per ogni operatore candidato (abilitato al servizio in `service_staff` e alla sede in `staff_location`, `bookable_online` se canale online): intersezione con i suoi `staff_shift` validi in quella data.
+3. Sottrai `staff_time_block` e righe `appointment_item` con `blocking = true`.
+4. Genera gli slot di inizio con passo `slot_interval_minutes`, rispettando `min_notice_minutes` e `max_advance_days`.
+5. Per **più servizi**: componi la sequenza (stesso operatore o operatori diversi, anche in parallelo se richiesto) e verifica che ogni segmento sia libero.
+6. Se è richiesta una risorsa (`service_resource`), verifica anche la sua libertà.
+7. Tutto calcolato nel **fuso della sede**, convertito in UTC per il confronto. Test obbligatori sui cambi ora legale (ultima domenica di marzo/ottobre).
+
+### 5.2 Creazione appuntamento e concorrenza
+
+- Operazione in **una transazione**. Prima di inserire: lock applicativo per operatore (`pg_advisory_xact_lock(hashtextextended(staff_id::text, 0))`) per serializzare le prenotazioni concorrenti e per validare anche contro `staff_time_block` (che l'exclusion constraint non copre, perché in altra tabella).
+- Il vincolo `no_staff_overlap` è la **rete di sicurezza finale**: una violazione deve essere mappata in `409 Conflict` ("slot non più disponibile").
+- La prenotazione online pubblica usa `Idempotency-Key`.
+- Il backoffice può forzare un overbooking solo con permesso esplicito (deroga: l'item viene creato con `blocking = false` e flag di warning, oppure su operatore "sovrapposizione consentita" — da decidere, vedi §10).
+
+### 5.3 Macchina a stati dell'appuntamento
+
+```
+BOOKED → CONFIRMED → ARRIVED → IN_PROGRESS → COMPLETED
+   ↘        ↘          ↘
+   CANCELLED          NO_SHOW      (da BOOKED/CONFIRMED/ARRIVED)
+```
+- Passando a `CANCELLED` o `NO_SHOW`: `appointment_item.blocking = false` per tutte le righe, scrittura in `appointment_status_history`, evento in outbox.
+- `late_cancellation = true` se la cancellazione avviene dentro `cancellation_window_hours`.
+- `NO_SHOW` incrementa `client.no_show_count`; sopra soglia configurabile → `blocked = true` per le prenotazioni online.
+- `COMPLETED` abilita la creazione della `sale`.
+
+### 5.4 Vendite e pagamenti
+
+- Totali calcolati **server-side**, interi in centesimi. Regola di arrotondamento unica e documentata per IVA inclusa/esclusa.
+- `sale.number` assegnato solo al passaggio a `COMPLETED`, tramite `sale_sequence` con `SELECT ... FOR UPDATE` (nessun buco di numerazione).
+- `SUM(payment.amount_minor WHERE status = SUCCEEDED) = sale.total_minor` per poter completare (o gestire acconti/pagamenti parziali con stato dedicato).
+- Una vendita completata non si modifica: si **annulla** (`VOIDED`) o si **rimborsa** (`refund`).
+- Pagamenti online via PSP (Stripe consigliato): webhook idempotenti, mai fidarsi del client per l'esito.
+- Pagamento con `VOUCHER` → riga in `voucher_transaction` con delta negativo, nella stessa transazione.
+- **Fiscalità italiana** (registratore telematico / documento commerciale / fattura elettronica / SDI): **fuori scope** in questa versione. Predisporre solo l'astrazione `FiscalDocumentService` per integrarla in seguito.
+
+### 5.5 Magazzino
+
+- La giacenza è derivata: `SUM(stock_movement.delta)` per prodotto/sede. Ogni vendita di prodotto genera un movimento `SALE` (delta negativo) nella stessa transazione.
+- Opzionale: tabella/vista materializzata `stock_level` per performance, aggiornata via trigger o job.
+
+### 5.6 Notifiche
+
+- Alla creazione/modifica/cancellazione di un appuntamento si scrive un evento in `outbox_event`; un worker lo trasforma in righe `notification_log` (`SCHEDULED`), inclusi i promemoria (es. 24h prima).
+- Un job schedulato (con lock distribuito, es. ShedLock) invia le notifiche in scadenza (`ix_notif_due`). Retry con backoff, stato `FAILED` dopo N tentativi.
+- Rispetta i consensi: i `MARKETING` solo con `marketing_*_consent_at` valorizzato; le transazionali no.
+
+### 5.7 Sicurezza e permessi
+
+- Ruoli per business (`OWNER`, `ADMIN`, `MANAGER`, `STAFF`, `FRONT_DESK`) con matrice permessi (es. `STAFF` vede solo il proprio calendario, non i report finanziari).
+- Ogni endpoint verifica che l'entità richiesta appartenga al `business_id` del contesto autenticato (test automatici di isolamento tenant).
+- Rate limiting e CAPTCHA/anti-abuso sugli endpoint pubblici di prenotazione.
+- `audit_log` per operazioni sensibili (rimborsi, annullamenti, cambio ruoli, export dati).
+
+## 6. API (bozza di superficie)
+
+```
+# Pubbliche (prenotazione online)
+GET  /public/businesses/{slug}                      profilo, sedi, servizi
+GET  /public/locations/{id}/availability            ?services=..&date=..&staffId=..
+POST /public/appointments                           (Idempotency-Key)
+GET  /public/appointments/{token}   PATCH/DELETE    gestione da parte del cliente
+
+# Backoffice (autenticate, scoped per business)
+/api/locations, /api/staff, /api/staff/{id}/shifts, /api/staff/{id}/time-blocks
+/api/services, /api/service-categories, /api/tax-rates
+/api/clients, /api/clients/{id}/appointments
+/api/appointments (CRUD + /status + /reschedule)    GET ?from=&to=&staffId=&locationId=
+/api/sales, /api/sales/{id}/payments, /api/sales/{id}/refunds
+/api/products, /api/stock-movements
+/api/reports/{sales|staff-performance|retention}    (Fase 4+)
+```
+
+## 7. Indici e performance (checklist)
+
+- `appointment (business_id, location_id, starts_at)` per la vista calendario.
+- `appointment_item (staff_id, starts_at)` oltre al GiST di esclusione.
+- Ricerca cliente con `pg_trgm` su nome/telefono, e indice su email.
+- Partizionamento di `audit_log`, `notification_log`, `outbox_event` per mese (quando i volumi lo giustificano).
+- Evitare N+1 in JPA: `@EntityGraph`/fetch join sulle viste calendario; proiezioni DTO per i report.
+
+## 8. Strategia di test
+
+- **Integration test con Testcontainers (Postgres reale)**: l'exclusion constraint e gli indici parziali non sono testabili con H2.
+- Test di **concorrenza**: N thread che prenotano lo stesso slot → esattamente 1 successo, gli altri `409`.
+- Test del motore di disponibilità con tabelle di casi (turni spezzati, pause, DST, servizi multipli, operatori diversi).
+- Test di **isolamento tenant**: un utente del business A non deve mai leggere/modificare dati del business B.
+- Test di contratto per i webhook del PSP (idempotenza).
+
+## 9. Piano di implementazione a fasi
+
+| Fase | Contenuto | Risultato verificabile |
+|---|---|---|
+| **0 — Bootstrap** | Progetto Spring Boot, Docker Compose, Flyway, Testcontainers, CI, convenzioni (`[std]`, error handling, tenant context) | App che parte, migrazione baseline, test integration verde |
+| **1 — Fondamenta** | identity, business, location, orari, tax_rate, catalogo (categorie, servizi, varianti) | CRUD con auth e isolamento tenant testato |
+| **2 — Staff e disponibilità** | staff, turni, blocchi, `service_staff`, availability engine | Endpoint disponibilità con test su DST e servizi multipli |
+| **3 — Clienti e prenotazioni** | client, appointment/items, exclusion constraint, macchina a stati, API backoffice + pubblica, calendario UI | Test concorrenza passato; prenotazione online end-to-end |
+| **4 — Vendite e pagamenti** | sale, items, numerazione, payment, refund, integrazione PSP | Chiusura appuntamento → vendita → pagamento |
+| **5 — Notifiche** | outbox, template, promemoria email/SMS, link gestione prenotazione | Promemoria inviati in test con mail catcher |
+| **6 — Magazzino e buoni** | product, stock ledger, voucher | Vendita prodotto scarica stock; voucher usato come pagamento |
+| **7 — Crescita** | recensioni, promozioni, report, marketplace pubblico, import clienti CSV | — |
+
+## 10. Decisioni aperte (da chiedermi prima di implementare)
+
+1. **Overbooking**: consentito dal backoffice? Se sì, come modellarlo (flag per operatore vs. deroga per singola riga)?
+2. **Tempi di posa/attesa** (es. colore in posa): l'operatore è libero durante `processing_minutes`? Se sì, la riga va spezzata in più intervalli.
+3. **Acconti/caparre** online e politica di rimborso.
+4. **Fatturazione/fiscalità** italiana: integrare un provider esterno o rimandare?
+5. **Marketplace** multi-business pubblico: sì/no, e in quale fase.
+6. **Lingue** supportate oltre l'italiano (i18n per template e UI).
+7. **Hosting e scalabilità** attesi (numero di business e prenotazioni/giorno) per decidere su partizionamento e caching.
