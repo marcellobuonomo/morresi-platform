@@ -196,47 +196,72 @@ CREATE TABLE schedule_exception (
 ### 4.3 Staff
 
 ```sql
--- [std] Operatore (può esistere senza account di login)
+-- ✅ Approvato (2026-11-02) — niente provvigioni automatiche (premi decisi dal titolare fuori dal sistema)
+-- [std] Collaboratore (può esistere anche senza account di accesso)
 CREATE TABLE staff (
-  member_id uuid REFERENCES business_member(id),   -- opzionale
-  display_name text NOT NULL,
-  job_title text, bio text, photo_url text,
-  calendar_color char(7),                          -- es. #FF8800
-  bookable_online boolean NOT NULL DEFAULT true,
-  commission_service_bp int NOT NULL DEFAULT 0,    -- basis points: 1000 = 10%
-  commission_product_bp int NOT NULL DEFAULT 0,
-  active boolean NOT NULL DEFAULT true,
-  sort_order int NOT NULL DEFAULT 0,
-  deleted_at timestamptz
+  user_id         uuid UNIQUE REFERENCES app_user(id),  -- facoltativo: solo se accede al gestionale
+  first_name      text NOT NULL,
+  last_name       text,
+  display_name    text NOT NULL,             -- nome mostrato ai clienti
+  phone           text,
+  job_title       text,
+  calendar_color  char(7),                   -- colonna in agenda, es. #FF8800
+  bookable_online boolean NOT NULL DEFAULT true,  -- false = prenotabile solo dal salone
+  sort_order      int NOT NULL DEFAULT 0,    -- ordine colonne in agenda
+  deleted_at      timestamptz                -- ex collaboratore: fuori dall'agenda, storico intatto
 );
 
-CREATE TABLE staff_location (
-  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
-  PRIMARY KEY (staff_id, location_id)
-);
-
--- [std] Turno settimanale ricorrente (valido in un intervallo di date)
+-- ✅ Approvato (2026-11-02)
+-- [std] Turno di lavoro in una data precisa: UNICA fonte per la disponibilità del collaboratore.
+-- Turni completamente liberi (l'admin li inserisce per l'orizzonte che conosce; oltre = non prenotabile).
+-- Ridurre un turno non cancella gli appuntamenti: in agenda vengono mostrati come "fuori turno".
 CREATE TABLE staff_shift (
-  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-  location_id uuid NOT NULL REFERENCES location(id),
-  weekday smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),
-  starts_at time NOT NULL, ends_at time NOT NULL,
-  valid_from date NOT NULL DEFAULT current_date,
-  valid_to date,
+  staff_id   uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  starts_at  timestamptz NOT NULL,
+  ends_at    timestamptz NOT NULL,
   CHECK (ends_at > starts_at)
 );
 
--- [std] Blocchi di indisponibilità puntuali (ferie, malattia, pausa, formazione)
+-- ✅ Approvato (2026-11-02)
+-- [std] Indisponibilità puntuali con motivo (anche dentro un turno, per le statistiche: es. giorni di malattia)
 CREATE TABLE staff_time_block (
-  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-  location_id uuid REFERENCES location(id),        -- null = tutte le sedi
-  type text NOT NULL CHECK (type IN ('TIME_OFF','SICK','BREAK','TRAINING','OTHER')),
-  starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
-  reason text,
+  staff_id   uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  type       text NOT NULL CHECK (type IN ('TIME_OFF','SICK','BREAK','TRAINING','OTHER')),
+  starts_at  timestamptz NOT NULL,
+  ends_at    timestamptz NOT NULL,
+  reason     text,
   CHECK (ends_at > starts_at)
+);
+
+-- ✅ Approvato (2026-11-02)
+-- [std] Turni modello (es. "Mattina 9-13") da applicare a più celle della griglia settimanale
+CREATE TABLE shift_template (
+  name           text NOT NULL,
+  starts_minute  int NOT NULL CHECK (starts_minute BETWEEN 0 AND 1439),
+  ends_minute    int NOT NULL CHECK (ends_minute BETWEEN 1 AND 1440),
+  CHECK (ends_minute > starts_minute)
+);
+
+-- ✅ Approvato (2026-11-02)
+-- [std] Settimana tipo del collaboratore: serve SOLO a generare staff_shift, non è letta dal motore di disponibilità.
+-- Modificarla non tocca i turni già generati.
+CREATE TABLE staff_week_pattern (
+  staff_id       uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  weekday        smallint NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+  starts_minute  int NOT NULL CHECK (starts_minute BETWEEN 0 AND 1439),
+  ends_minute    int NOT NULL CHECK (ends_minute BETWEEN 1 AND 1440),
+  CHECK (ends_minute > starts_minute)
 );
 ```
+
+**Strumenti admin per i turni** (operazioni, nessuna tabella aggiuntiva):
+- **Copia settimana** su N settimane o fino a una data, per tutti o alcuni collaboratori; settimane di destinazione già compilate: sovrascrivi o salta. Giorni con `schedule_exception` CLOSED saltati. Copia in **ora locale** (le 9:00 restano 9:00 anche al cambio DST). Anteprima/riepilogo prima di confermare.
+- **Applica settimana tipo** (`staff_week_pattern`) per N settimane, stesse regole della copia.
+- **Applica preset** (`shift_template`) a più celle selezionate (giorni × collaboratori).
+- **Cancellazione in blocco** di un intervallo; modifica rapida trascinando i bordi del turno in agenda.
+
+**Prenotabilità di un collaboratore** = turno presente ∩ salone aperto (`opening_hours` + `schedule_exception`) − `staff_time_block` − appuntamenti esistenti.
+
 
 ### 4.4 Catalogo servizi
 
