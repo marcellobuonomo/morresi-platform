@@ -23,14 +23,16 @@
 
 ### Convenzioni DB
 
-- **PK**: `uuid` (`gen_random_uuid()`); in Java `UUID`. Considerare UUIDv7 per località d'indice.
-- **Tempo**: sempre `timestamptz` (UTC). Ogni `location` ha un `timezone` IANA; conversione solo ai bordi (API/UI). Attenzione ai cambi DST nel calcolo slot.
-- **Denaro**: `bigint` in **unità minori** (centesimi) + valuta a livello `business.currency` (ISO 4217). Mai `float/double`.
+> ✅ **Approvato (2026-11-02) — Single-tenant.** L'applicazione serve **un solo salone con una sola sede**. Nessun `business_id`, nessun filtro tenant, nessuna tabella `location`. Un nuovo salone = nuova installazione con DB separato. Nessun dato specifico del salone (nome, brand, orari, fuso, regole) nel codice: tutto in `salon_settings`. Le sezioni successive non ancora revisionate possono contenere ancora riferimenti a `business_id`/`location_id`: vanno ignorati.
+
+- **PK**: `uuid` **v7** generato da Hibernate (`@UuidGenerator(style = VERSION_7)`), default DB `gen_random_uuid()` come fallback; in Java `UUID`.
+- **Tempo**: sempre `timestamptz` (UTC). Il fuso IANA del salone è in `salon_settings.timezone`; conversione solo ai bordi (API/UI). Attenzione ai cambi DST nel calcolo slot.
+- **Denaro**: `bigint` in **unità minori** (centesimi) + valuta in `salon_settings.currency` (ISO 4217). Mai `float/double`.
 - **Enum**: `text` + `CHECK` (non enum nativi Postgres), `@Enumerated(EnumType.STRING)` in JPA.
-- **Multi-tenancy**: schema condiviso, colonna `business_id` su tutte le tabelle tenant. Ogni query applica il filtro tenant (Hibernate filter o `@TenantId`); valutare **Row Level Security** come difesa in profondità.
-- **Colonne standard `[std]`** (omesse nel DDL sotto per brevità, da includere in ogni tabella tenant):
-  `id uuid PK`, `business_id uuid NOT NULL FK business`, `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`, `version bigint NOT NULL DEFAULT 0` (optimistic locking).
-- **Soft delete** (`deleted_at timestamptz`) solo dove indicato (client, service, product, staff); gli indici univoci diventano parziali `WHERE deleted_at IS NULL`.
+- **Colonne standard `[std]`** (omesse nel DDL sotto per brevità, da includere in ogni tabella):
+  `id uuid PK`, `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`, `version bigint NOT NULL DEFAULT 0` (optimistic locking). `created_at`/`updated_at` valorizzati da Hibernate.
+- **Soft delete** (`deleted_at timestamptz`) solo su client, service, product, staff; gli indici univoci diventano parziali `WHERE deleted_at IS NULL`.
+- **Nessun `created_by`/`updated_by` generico**: le operazioni sensibili vanno in `audit_log`.
 - **Snapshot**: righe di appuntamento e vendita copiano nome/prezzo/IVA al momento della creazione (il listino può cambiare, lo storico no).
 - **Privacy/GDPR (UE/Italia)**: consensi espliciti e datati, esportazione e cancellazione/anonimizzazione dati cliente, retention definita, nessun dato sanitario in chiaro nelle note senza base giuridica.
 
