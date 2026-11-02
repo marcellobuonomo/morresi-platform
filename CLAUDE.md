@@ -1,5 +1,36 @@
 # CLAUDE.md
 
+## Progetto
+Gestionale per **un solo salone (Morresi), una sola sede**: prenotazioni online e agenda, clienti, vendite,
+area admin con statistiche (rendimento collaboratori, clienti top per spesa, ...).
+- **Single-tenant**: niente `business_id`/`location_id`. Un nuovo salone = nuova installazione con DB separato,
+  quindi nessun dato specifico del salone nel codice (tutto in `salon_settings`).
+- Specifica di riferimento: [DATA_MODEL.md](DATA_MODEL.md). Le tabelle marcate ✅ sono approvate,
+  🟡 in discussione; le parti non ancora revisionate possono citare ancora `business_id`/`location_id`: ignorarli.
+- Stack: Java 21, Spring Boot 4.1, Maven (`backend/`, wrapper `mvnw`), PostgreSQL 17, Flyway, Testcontainers.
+  Serve JDK 21 (`JAVA_HOME`) e Docker per i test.
+
+## Branch
+`feature/dev` (sviluppo) → `env/svil` (integrazione) → `master` (produzione).
+Si lavora e si committa su `feature/dev`; merge verso `env/svil`/`master` solo su richiesta esplicita.
+
+## Stato dei lavori (aggiornare a fine sessione)
+**Fase attuale: revisione del modello dati, una entity alla volta.** L'utente approva ogni tabella con un "ok";
+dopo ogni ok si aggiorna DATA_MODEL.md (marcatura ✅) e si committa. Le migrazioni Flyway si scrivono solo
+dopo, quando il modello è approvato.
+
+Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identity` / `user_token`,
+`salon_settings` / `opening_hours` / `schedule_exception`, `staff` / `staff_shift` / `staff_time_block` /
+`shift_template` / `staff_week_pattern`. Decisa anche la sovrapposizione appuntamenti solo da ADMIN.
+
+**Ripartire da: catalogo servizi (DATA_MODEL.md §4.4).** Proposta già scritta lì; l'utente deve rispondere
+a 3 domande (varianti, tempo di posa, prezzo/durata per collaboratore) prima dell'ok.
+
+Ordine successivo: catalogo → `client` → `appointment` → vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
+
+Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
+da soli le scelte di dominio.
+
 ## Filosofia di codice
 - Fai la soluzione più semplice che soddisfa il requisito attuale. Niente funzionalità "per il futuro".
 - Non introdurre un'interfaccia se esiste una sola implementazione.

@@ -265,7 +265,50 @@ CREATE TABLE staff_week_pattern (
 
 ### 4.4 Catalogo servizi
 
+> 🟡 **IN DISCUSSIONE (2026-11-02)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
+>
+> Esempio di partenza dell'utente: balayage 50 min / 100 € + taglio 20 min / 80 € + piega 10 min / 20 € = 80 min / 200 €.
+> Servizi cumulabili: durata e prezzo si sommano nell'ordine di scelta (l'admin può riordinare). Tutto configurato dall'admin.
+
 ```sql
+-- PROPOSTA
+-- [std]
+CREATE TABLE service_category (
+  name        text NOT NULL,                     -- es. "Colore", "Taglio", "Piega"
+  sort_order  int NOT NULL DEFAULT 0
+);
+
+-- [std]
+CREATE TABLE service (
+  category_id       uuid REFERENCES service_category(id),
+  name              text NOT NULL,
+  description       text,
+  duration_minutes  int NOT NULL CHECK (duration_minutes > 0),
+  price_minor       bigint NOT NULL CHECK (price_minor >= 0),   -- IVA inclusa
+  price_type        text NOT NULL DEFAULT 'FIXED' CHECK (price_type IN ('FIXED','FROM')),
+  vat_rate_bp       int NOT NULL DEFAULT 2200,
+  online_bookable   boolean NOT NULL DEFAULT true,
+  sort_order        int NOT NULL DEFAULT 0,
+  deleted_at        timestamptz
+);
+
+-- Chi può eseguire quale servizio
+CREATE TABLE service_staff (
+  service_id  uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  staff_id    uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  PRIMARY KEY (service_id, staff_id)
+);
+```
+
+Tolti rispetto all'originale: `tax_rate` (IVA sul servizio), campi acconto (finché non si decide sulle caparre), price_type `FREE` (basta prezzo 0), `service_location` (sede unica), `resource`/`service_resource` (solo se le attrezzature diventano un collo di bottiglia).
+
+**Domande aperte a cui l'utente deve rispondere prima dell'ok:**
+1. **Varianti**: stesso servizio con durata/prezzo diversi (es. taglio corti 20 min/25 €, lunghi 30 min/35 €)? Sì → `service_variant`; no → servizi distinti.
+2. **Tempo di posa**: durante la posa (es. 25 dei 50 min del balayage) il collaboratore è libero per un altro cliente? Sì → servizio in fasi lavoro/posa/lavoro (agenda più efficiente, motore di disponibilità più complesso); no → durata piena occupata.
+3. **Prezzo/durata per collaboratore**: stesso servizio con prezzo o durata diversi in base a chi lo esegue (titolare vs junior)? Sì → override facoltativi su `service_staff`; no → resta com'è.
+
+```sql
+-- ORIGINALE (riferimento)
 -- [std]
 CREATE TABLE tax_rate (
   name text NOT NULL,                              -- es. "IVA 22%"
