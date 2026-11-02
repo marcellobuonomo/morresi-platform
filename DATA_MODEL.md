@@ -96,17 +96,36 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;     -- ricerca clienti per nome/telefono
 ### 4.2 Identità e tenancy
 
 ```sql
--- Account di login globale (titolari, staff, eventualmente consumatori del marketplace)
+-- ✅ Approvato (2026-11-02)
+-- [std] Account di accesso per tutti (personale e clienti): solo credenziali.
+-- I dati anagrafici stanno in client (clienti) e staff (collaboratori), perché il salone
+-- registra anche clienti senza account (walk-in).
 CREATE TABLE app_user (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email citext NOT NULL UNIQUE,
-  password_hash text,                     -- null se solo login esterno
-  first_name text, last_name text, phone text,
-  locale text NOT NULL DEFAULT 'it',
-  email_verified_at timestamptz,
-  last_login_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  email              citext NOT NULL UNIQUE,
+  password_hash      text,                -- null se registrato solo con Google
+  role               text NOT NULL CHECK (role IN ('ADMIN','RECEPTION','STAFF','CLIENT')),
+  status             text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','DISABLED')),
+  email_verified_at  timestamptz,         -- null = non può accedere finché non conferma
+  last_login_at      timestamptz
+);
+
+-- ✅ Approvato (2026-11-02)
+-- [std] Login federato (per ora solo Google, via Spring Security OAuth2/OIDC)
+CREATE TABLE user_identity (
+  user_id           uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  provider          text NOT NULL CHECK (provider IN ('GOOGLE')),
+  provider_subject  text NOT NULL,        -- id univoco dell'utente presso il provider
+  UNIQUE (provider, provider_subject)
+);
+
+-- ✅ Approvato (2026-11-02)
+-- [std] Token monouso: conferma email, reset password (anche per la prima password dei collaboratori)
+CREATE TABLE user_token (
+  user_id     uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  type        text NOT NULL CHECK (type IN ('EMAIL_VERIFICATION','PASSWORD_RESET')),
+  token_hash  text NOT NULL UNIQUE,       -- solo hash, mai il token in chiaro
+  expires_at  timestamptz NOT NULL,
+  used_at     timestamptz
 );
 
 -- Tenant
@@ -124,13 +143,15 @@ CREATE TABLE business (
   version bigint NOT NULL DEFAULT 0
 );
 
--- [std] Appartenenza utente→business con ruolo (permessi)
-CREATE TABLE business_member (
-  user_id uuid NOT NULL REFERENCES app_user(id),
-  role text NOT NULL CHECK (role IN ('OWNER','ADMIN','MANAGER','STAFF','FRONT_DESK')),
-  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('INVITED','ACTIVE','DISABLED')),
-  UNIQUE (business_id, user_id)
-);
+-- ❌ business_member eliminata (single-tenant): il ruolo è su app_user.
+--    Ruoli: ADMIN (tutto, statistiche, impostazioni), RECEPTION (agenda di tutti, clienti, cassa;
+--    no statistiche/impostazioni), STAFF (solo la propria agenda), CLIENT (prenotazione online).
+-- Regole registrazione clienti:
+--  - classica (form + conferma email) o Google; nome, cognome, email, telefono obbligatori:
+--    dopo il login Google si chiede subito il telefono mancante (completamento profilo).
+--  - se l'email coincide con un client già in anagrafica, l'account viene collegato a quella scheda.
+--  - telefono verificato con codice OTP via WhatsApp, fallback SMS, tramite provider esterno
+--    (es. Twilio Verify): nessuna tabella OTP nel nostro DB, solo client.phone_verified_at.
 
 -- [std] Sede
 CREATE TABLE location (
