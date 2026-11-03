@@ -310,68 +310,52 @@ Decisioni (2026-11-03):
 
 ### 4.5 Clienti
 
-> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
-
 ```sql
--- PROPOSTA
+-- ✅ Approvato (2026-11-03)
+-- [std] Provenienza del cliente, lista gestita dall'admin (es. "Passaparola", "Instagram", "Online")
+CREATE TABLE client_source (
+  name        text NOT NULL UNIQUE,
+  sort_order  int NOT NULL DEFAULT 0
+);
+
 -- [std] Scheda cliente: esiste anche senza account (walk-in, clienti al telefono).
 CREATE TABLE client (
-  user_id                     uuid UNIQUE REFERENCES app_user(id),  -- se il cliente si è registrato online
-  first_name                  text NOT NULL,
-  last_name                   text,                  -- obbligatorio solo nella registrazione online
-  email                       citext,
-  phone                       text,                  -- formato E.164, es. +393331234567
-  phone_verified_at           timestamptz,           -- OTP WhatsApp/SMS (già deciso con app_user)
-  birth_date                  date,
-  notes                       text,                  -- note operative (es. "allergica alla tinta X")
-  marketing_email_consent_at  timestamptz,           -- NULL = nessun consenso
-  marketing_sms_consent_at    timestamptz,
-  online_booking_blocked_at   timestamptz,           -- NULL = può prenotare online
-  deleted_at                  timestamptz
+  user_id                       uuid UNIQUE REFERENCES app_user(id),  -- se il cliente si è registrato online
+  first_name                    text NOT NULL,
+  last_name                     text,                  -- obbligatorio solo nella registrazione online
+  email                         citext,
+  phone                         text,                  -- formato E.164, es. +393331234567; NON unico (mamma e figlia)
+  phone_verified_at             timestamptz,           -- OTP WhatsApp/SMS (già deciso con app_user)
+  birth_date                    date,
+  notes                         text,                  -- un solo campo modificabile, niente storico
+  source_id                     uuid REFERENCES client_source(id),
+  marketing_email_consent_at    timestamptz,           -- NULL = nessun consenso
+  marketing_sms_consent_at      timestamptz,
+  marketing_whatsapp_consent_at timestamptz,
+  online_booking_blocked_at     timestamptz,           -- NULL = può prenotare online
+  deleted_at                    timestamptz
 );
 CREATE UNIQUE INDEX ux_client_email ON client (email) WHERE email IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX ix_client_search ON client USING gin
   ((coalesce(first_name,'')||' '||coalesce(last_name,'')||' '||coalesce(phone,'')) gin_trgm_ops);
+
+-- [std] Etichette gestite dall'admin (es. "VIP", "Sposa 2027")
+CREATE TABLE client_tag (
+  name  text NOT NULL UNIQUE
+);
+CREATE TABLE client_tag_assignment (
+  client_id  uuid NOT NULL REFERENCES client(id) ON DELETE CASCADE,
+  tag_id     uuid NOT NULL REFERENCES client_tag(id) ON DELETE CASCADE,
+  PRIMARY KEY (client_id, tag_id)
+);
 ```
 
 Blocco no-show: le assenze si contano dagli appuntamenti (stato NO_SHOW), niente contatore duplicato. Quando un'assenza
 fa raggiungere `salon_settings.no_show_block_threshold`, il sistema imposta `online_booking_blocked_at`; l'admin
-può bloccare/sbloccare a mano. Tolti rispetto all'originale: `source`, `no_show_count`, `client_tag`, `client_note`.
+può bloccare/sbloccare a mano. Tolti rispetto all'originale: `no_show_count`, `client_note` (niente storico note).
 
-```sql
--- ORIGINALE (riferimento)
--- [std]
-CREATE TABLE client (
-  user_id uuid REFERENCES app_user(id),            -- se il cliente ha un account
-  first_name text NOT NULL, last_name text,
-  email citext, phone text,                        -- phone in formato E.164
-  birth_date date,
-  notes text,                                      -- note operative (non sanitarie)
-  marketing_email_consent_at timestamptz,
-  marketing_sms_consent_at timestamptz,
-  source text CHECK (source IN ('WALK_IN','ONLINE','IMPORT','MARKETPLACE','REFERRAL','OTHER')),
-  blocked boolean NOT NULL DEFAULT false,          -- blocco prenotazioni online (no-show ripetuti)
-  no_show_count int NOT NULL DEFAULT 0,
-  deleted_at timestamptz
-);
-CREATE UNIQUE INDEX ux_client_email ON client (business_id, email) WHERE email IS NOT NULL AND deleted_at IS NULL;
-CREATE INDEX ix_client_search ON client USING gin ((coalesce(first_name,'')||' '||coalesce(last_name,'')||' '||coalesce(phone,'')) gin_trgm_ops);
-
--- [std]
-CREATE TABLE client_tag (name text NOT NULL, UNIQUE (business_id, name));
-CREATE TABLE client_tag_assignment (
-  client_id uuid NOT NULL REFERENCES client(id) ON DELETE CASCADE,
-  tag_id uuid NOT NULL REFERENCES client_tag(id) ON DELETE CASCADE,
-  PRIMARY KEY (client_id, tag_id)
-);
-
--- [std] Storico note
-CREATE TABLE client_note (
-  client_id uuid NOT NULL REFERENCES client(id) ON DELETE CASCADE,
-  author_member_id uuid REFERENCES business_member(id),
-  body text NOT NULL
-);
-```
+Decisioni (2026-11-03): etichette sì; un solo campo note, niente storico; consensi marketing per email/SMS/WhatsApp;
+telefono non unico (mamma e figlia); provenienza da elenco gestito dall'admin (statistiche pulite).
 
 ### 4.6 Prenotazioni (cuore del sistema)
 
