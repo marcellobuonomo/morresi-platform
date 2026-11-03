@@ -27,11 +27,12 @@ Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identit
 Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa),
 `client` / `client_source` / `client_tag` / `client_tag_assignment`, `appointment` / `appointment_item`
 (sovrapposizione admin = `forced_overlap`; promemoria/conferma solo a clienti registrati),
-`sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND).
+`sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND),
+`product` (solo elenco prodotti; magazzino in sospeso finché il cliente non decide).
 
-**Ripartire da: magazzino (DATA_MODEL.md §4.8).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: buoni, notifiche, recensioni, piattaforma (DATA_MODEL.md §4.9).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Ordine successivo: magazzino → buoni, notifiche, piattaforma.
+Ordine successivo: buoni, notifiche, piattaforma. Poi eventualmente il magazzino (§4.8).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

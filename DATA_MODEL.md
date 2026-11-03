@@ -492,34 +492,24 @@ del browser); rimborso acconto via API Stripe. Correzioni in salone dopo il paga
 ### 4.8 Prodotti e magazzino
 
 ```sql
--- [std]
-CREATE TABLE supplier (name text NOT NULL, email text, phone text, notes text);
-
+-- ✅ Approvato (2026-11-03) — solo l'elenco dei prodotti in vendita (serve a sale_item)
 -- [std]
 CREATE TABLE product (
-  supplier_id uuid REFERENCES supplier(id),
-  tax_rate_id uuid REFERENCES tax_rate(id),
-  name text NOT NULL, brand text, sku text, barcode text,
-  price_minor bigint NOT NULL CHECK (price_minor >= 0),
-  cost_minor bigint,
-  track_stock boolean NOT NULL DEFAULT true,
-  low_stock_threshold int,
-  active boolean NOT NULL DEFAULT true,
-  deleted_at timestamptz
+  name         text NOT NULL,
+  brand        text,
+  price_minor  bigint NOT NULL CHECK (price_minor >= 0),   -- IVA inclusa
+  vat_rate_bp  int NOT NULL DEFAULT 2000,
+  active       boolean NOT NULL DEFAULT true,
+  deleted_at   timestamptz
 );
-CREATE UNIQUE INDEX ux_product_sku ON product (business_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL;
-
--- [std] Libro mastro append-only: la giacenza = SUM(delta)
-CREATE TABLE stock_movement (
-  product_id uuid NOT NULL REFERENCES product(id),
-  location_id uuid NOT NULL REFERENCES location(id),
-  delta int NOT NULL CHECK (delta <> 0),
-  reason text NOT NULL CHECK (reason IN ('PURCHASE','SALE','RETURN','ADJUSTMENT','TRANSFER','DAMAGE')),
-  sale_item_id uuid REFERENCES sale_item(id),
-  note text
-);
-CREATE INDEX ix_stock_product_loc ON stock_movement (product_id, location_id);
 ```
+
+> ⏸️ **MAGAZZINO IN SOSPESO (2026-11-03)** — non si sa ancora se il cliente vuole gestirlo. Se sì, si aggiunge sopra
+> `product` senza cambiare le tabelle approvate. Domande già pronte: prodotti d'uso interno (tinte, ossigeno) o solo
+> rivendita; anagrafica fornitori; costo d'acquisto per il margine; codice a barre; avviso scorta minima; categorie prodotto.
+> Riferimento originale (non approvato): `supplier`; su `product` `supplier_id`, `sku`, `barcode`, `cost_minor`,
+> `track_stock`, `low_stock_threshold`; `stock_movement` (libro mastro append-only, giacenza = SUM(delta), movimento
+> `SALE` per ogni vendita di prodotto e `RETURN` se la riga viene tolta in correzione).
 
 ### 4.9 Buoni, notifiche, recensioni, piattaforma
 
@@ -632,6 +622,8 @@ BOOKED → CONFIRMED → ARRIVED → IN_PROGRESS → COMPLETED
 - **Fiscalità**: salone nel UK, la ricevuta la emette la cassa; il gestionale tiene solo il numero progressivo interno.
 
 ### 5.5 Magazzino
+
+> ⏸️ In sospeso (vedi §4.8).
 
 - La giacenza è derivata: `SUM(stock_movement.delta)` per prodotto/sede. Ogni vendita di prodotto genera un movimento `SALE` (delta negativo) nella stessa transazione.
 - Opzionale: tabella/vista materializzata `stock_level` per performance, aggiornata via trigger o job.
