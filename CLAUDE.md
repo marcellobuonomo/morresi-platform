@@ -37,7 +37,7 @@ tolte `outbox_event` e `idempotency_key`.
 **Ripartire da: rilettura di DATA_MODEL.md §1-§3 e §5-§10 (convenzioni, mappa, ER, regole, API, piano, decisioni aperte)
 per allinearli alle decisioni prese (single-tenant, UK, niente varianti/risorse/outbox, ecc.).** Tabelle §4 tutte riviste. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Poi: migrazioni Flyway. In sospeso: magazzino (§4.8), buoni (§4.9). In sospeso: magazzino (§4.8), buoni (§4.9).
+Poi: migrazioni Flyway. In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
