@@ -30,7 +30,7 @@ Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `servi
 `sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND),
 `product` (solo elenco prodotti; magazzino in sospeso finché il cliente non decide). Buoni in sospeso.
 
-**Ripartire da: notifiche (DATA_MODEL.md §4.9).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: notifiche (DATA_MODEL.md §4.9).** Proposta già scritta lì; in attesa delle risposte dell'utente. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
 Ordine successivo: notifiche → recensioni → tabelle di piattaforma. In sospeso: magazzino (§4.8), buoni (§4.9).
 

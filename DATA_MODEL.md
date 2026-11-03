@@ -532,24 +532,76 @@ CREATE TABLE product (
 > );
 > ```
 
+#### Notifiche
+
+> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata.
+>
+> Risposte dell'utente: messaggi = prenotazione ricevuta + promemoria + auguri di compleanno; canale per i clienti = WhatsApp;
+> lingua del messaggio = italiano per clienti italiani, altrimenti inglese; testi fissi (nel codice, con il nome del salone
+> preso da `salon_settings`); avviso al salone via email per nuove prenotazioni/disdette online; campagne promozionali sì.
+
 ```sql
--- [std]
-CREATE TABLE notification_template (
-  type text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','CANCELLATION','RESCHEDULE','REVIEW_REQUEST','MARKETING')),
-  channel text NOT NULL CHECK (channel IN ('EMAIL','SMS','PUSH')),
-  locale text NOT NULL DEFAULT 'it', subject text, body text NOT NULL,
-  active boolean NOT NULL DEFAULT true,
-  UNIQUE (business_id, type, channel, locale)
+-- PROPOSTA
+-- Modifiche a tabelle già approvate:
+--   client:         locale text NOT NULL DEFAULT 'en' CHECK (locale IN ('en','it'))  -- lingua dei messaggi
+--   salon_settings: reminder_hours_before int NOT NULL DEFAULT 24
+--                   notification_email    text   -- dove arrivano gli avvisi al salone (NULL = salon_settings.email)
+
+-- [std] Campagna promozionale verso i clienti con consenso, filtrati per etichetta (NULL = tutti)
+CREATE TABLE marketing_campaign (
+  name        text NOT NULL,
+  channel     text NOT NULL CHECK (channel IN ('WHATSAPP','EMAIL')),
+  body        text NOT NULL,                      -- testo scritto dall'admin
+  tag_id      uuid REFERENCES client_tag(id),
+  sent_at     timestamptz                         -- NULL = bozza
 );
-CREATE TABLE notification_log (  -- [std]
-  appointment_id uuid REFERENCES appointment(id), client_id uuid REFERENCES client(id),
-  type text NOT NULL, channel text NOT NULL, recipient text NOT NULL,
-  status text NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','SENT','FAILED','SKIPPED')),
-  scheduled_for timestamptz NOT NULL, sent_at timestamptz,
-  provider_message_id text, error text
+
+-- [std] Registro di ogni messaggio inviato o da inviare (anche gli avvisi al salone)
+CREATE TABLE notification_log (
+  type                 text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','BIRTHDAY','CAMPAIGN',
+                                                     'SALON_NEW_BOOKING','SALON_CANCELLATION')),
+  channel              text NOT NULL CHECK (channel IN ('WHATSAPP','EMAIL')),
+  client_id            uuid REFERENCES client(id),
+  appointment_id       uuid REFERENCES appointment(id),
+  campaign_id          uuid REFERENCES marketing_campaign(id),
+  recipient            text NOT NULL,             -- numero E.164 o indirizzo email
+  status               text NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','SENT','FAILED','SKIPPED')),
+  scheduled_for        timestamptz NOT NULL,
+  sent_at              timestamptz,
+  provider_message_id  text,                      -- id Twilio/email
+  error                text
 );
 CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
+```
 
+Regole: messaggi ai clienti solo se registrati e con telefono verificato. Prenotazione ricevuta e promemoria sono messaggi
+di servizio (nessun consenso marketing richiesto); auguri e campagne solo con il consenso del canale. Tolta
+`notification_template` (testi fissi nel codice, file di messaggi `en`/`it`).
+
+> Riferimento originale (non approvato):
+>
+> ```sql
+> -- [std]
+> CREATE TABLE notification_template (
+>   type text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','CANCELLATION','RESCHEDULE','REVIEW_REQUEST','MARKETING')),
+>   channel text NOT NULL CHECK (channel IN ('EMAIL','SMS','PUSH')),
+>   locale text NOT NULL DEFAULT 'it', subject text, body text NOT NULL,
+>   active boolean NOT NULL DEFAULT true,
+>   UNIQUE (business_id, type, channel, locale)
+> );
+> CREATE TABLE notification_log (  -- [std]
+>   appointment_id uuid REFERENCES appointment(id), client_id uuid REFERENCES client(id),
+>   type text NOT NULL, channel text NOT NULL, recipient text NOT NULL,
+>   status text NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','SENT','FAILED','SKIPPED')),
+>   scheduled_for timestamptz NOT NULL, sent_at timestamptz,
+>   provider_message_id text, error text
+> );
+> CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
+> ```
+
+#### Recensioni e piattaforma
+
+```sql
 -- [std] Una recensione per appuntamento completato
 CREATE TABLE review (
   appointment_id uuid NOT NULL UNIQUE REFERENCES appointment(id),
