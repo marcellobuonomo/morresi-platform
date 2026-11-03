@@ -17,9 +17,9 @@ area admin con statistiche (rendimento collaboratori, clienti top per spesa, ...
 Si lavora e si committa su `feature/dev`; merge verso `env/svil`/`master` solo su richiesta esplicita.
 
 ## Stato dei lavori (aggiornare a fine sessione)
-**Fase attuale: revisione del modello dati, una entity alla volta.** L'utente approva ogni tabella con un "ok";
+**Fase attuale: modello dati approvato e migrato; prossimo passo le funzionalità.** (Revisione fatta una entity alla volta: l'utente approvava ogni tabella con un "ok";
 dopo ogni ok si aggiorna DATA_MODEL.md (marcatura ✅) e si committa. Le migrazioni Flyway si scrivono solo
-dopo, quando il modello è approvato.
+dopo, quando il modello è approvato.)
 
 Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identity` / `user_token`,
 `salon_settings` / `opening_hours` / `schedule_exception`, `staff` / `staff_shift` / `staff_time_block` /
@@ -34,10 +34,11 @@ Notifiche `marketing_campaign` (solo email) / `notification_log`: WhatsApp a ogn
 (solo clienti registrati) + recensioni Google lette da Places API. `audit_log` solo per operazioni delicate;
 tolte `outbox_event` e `idempotency_key`.
 
-**Ripartire da: rilettura di DATA_MODEL.md §1-§3 e §5-§10 (convenzioni, mappa, ER, regole, API, piano, decisioni aperte)
-per allinearli alle decisioni prese (single-tenant, UK, niente varianti/risorse/outbox, ecc.).** Tabelle §4 tutte riviste. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
-
-Poi: migrazioni Flyway. In sospeso: magazzino (§4.8), buoni (§4.9).
+**Migrazioni Flyway V2-V8 scritte e applicate (2026-11-03)** sul Postgres locale (riga iniziale `salon_settings` con nome
+"MORRESI HAIRSTYLIST"). La rilettura di DATA_MODEL.md §5-§10 è stata saltata su richiesta dell'utente: quelle sezioni
+citano ancora cose tolte (sedi, varianti, outbox, ruoli diversi); fa fede §4.
+**Ripartire da:** scegliere con l'utente la prima funzionalità da costruire (entity JPA + API). Limite di disdetta da
+chiedere all'utente (è in `salon_settings`, ora 24h). In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
