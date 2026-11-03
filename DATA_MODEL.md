@@ -580,17 +580,52 @@ Prenotazione ricevuta e promemoria sono messaggi di servizio (nessun consenso ma
 WhatsApp; campagne solo via email e con consenso email. Modelli WhatsApp (en/it) approvati una volta da Meta. Tolta
 `notification_template` (testi fissi nel codice, file di messaggi `en`/`it`).
 
-#### Recensioni e piattaforma
+#### Recensioni
+
+> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata.
+>
+> Risposte dell'utente: recensioni sia su Google sia dirette nel gestionale; anche sul singolo collaboratore; pubblicate
+> sulla pagina di prenotazione, l'admin decide quali; nessun messaggio automatico: la reception la chiede a voce.
 
 ```sql
--- [std] Una recensione per appuntamento completato
+-- PROPOSTA
+-- Modifica a tabella già approvata:
+--   salon_settings: google_review_url text   -- link alla pagina Google per lasciare la recensione
+
+-- [std] Recensione diretta: una per appuntamento completato
 CREATE TABLE review (
-  appointment_id uuid NOT NULL UNIQUE REFERENCES appointment(id),
-  client_id uuid REFERENCES client(id),
-  rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  comment text, business_reply text, published boolean NOT NULL DEFAULT false
+  appointment_id  uuid NOT NULL UNIQUE REFERENCES appointment(id),
+  client_id       uuid REFERENCES client(id),
+  rating          smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),   -- voto al salone
+  comment         text,
+  salon_reply     text,
+  published       boolean NOT NULL DEFAULT false                       -- deciso dall'admin
 );
 
+-- Voto ai singoli collaboratori dell'appuntamento (facoltativo)
+CREATE TABLE review_staff_rating (
+  review_id  uuid NOT NULL REFERENCES review(id) ON DELETE CASCADE,
+  staff_id   uuid NOT NULL REFERENCES staff(id),
+  rating     smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  PRIMARY KEY (review_id, staff_id)
+);
+```
+
+> Riferimento originale (non approvato):
+>
+> ```sql
+> -- [std] Una recensione per appuntamento completato
+> CREATE TABLE review (
+>   appointment_id uuid NOT NULL UNIQUE REFERENCES appointment(id),
+>   client_id uuid REFERENCES client(id),
+>   rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+>   comment text, business_reply text, published boolean NOT NULL DEFAULT false
+> );
+> ```
+
+#### Piattaforma
+
+```sql
 -- Piattaforma
 CREATE TABLE audit_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -32,7 +32,7 @@ Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `servi
 Notifiche `marketing_campaign` (solo email) / `notification_log`: WhatsApp a ogni cliente con telefono, lingua da
 `client.nationality`, testi fissi en/it, avvisi email al salone.
 
-**Ripartire da: recensioni (DATA_MODEL.md §4.9).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: recensioni (DATA_MODEL.md §4.9).** Proposta già scritta lì; in attesa delle risposte dell'utente. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
 Ordine successivo: recensioni → tabelle di piattaforma. In sospeso: magazzino (§4.8), buoni (§4.9).
 
