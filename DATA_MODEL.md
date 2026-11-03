@@ -359,7 +359,57 @@ telefono non unico (mamma e figlia); provenienza da elenco gestito dall'admin (s
 
 ### 4.6 Prenotazioni (cuore del sistema)
 
+> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
+
 ```sql
+-- PROPOSTA
+-- [std] Appuntamento = contenitore di una o più righe-servizio (es. balayage + taglio + piega)
+CREATE TABLE appointment (
+  client_id            uuid REFERENCES client(id),     -- NULL = cliente di passaggio senza scheda (da decidere)
+  status               text NOT NULL DEFAULT 'BOOKED'
+    CHECK (status IN ('BOOKED','COMPLETED','CANCELLED','NO_SHOW')),
+  starts_at            timestamptz NOT NULL,           -- = min(items.starts_at), per l'agenda
+  ends_at              timestamptz NOT NULL,           -- = max(items.ends_at)
+  client_notes         text,                           -- scritte dal cliente prenotando online
+  internal_notes       text,                           -- visibili solo al salone
+  created_by_user_id   uuid NOT NULL REFERENCES app_user(id),  -- ruolo CLIENT = prenotazione online
+  cancelled_at         timestamptz,
+  cancelled_by_user_id uuid REFERENCES app_user(id),
+  late_cancellation    boolean NOT NULL DEFAULT false, -- disdetta dentro cancellation_window_hours
+  CHECK (ends_at > starts_at)
+);
+CREATE INDEX ix_appt_calendar ON appointment (starts_at);
+CREATE INDEX ix_appt_client ON appointment (client_id, starts_at DESC);
+
+-- [std] Riga-servizio: chi fa cosa e quando
+CREATE TABLE appointment_item (
+  appointment_id  uuid NOT NULL REFERENCES appointment(id) ON DELETE CASCADE,
+  service_id      uuid NOT NULL REFERENCES service(id),
+  staff_id        uuid NOT NULL REFERENCES staff(id),
+  starts_at       timestamptz NOT NULL,
+  ends_at         timestamptz NOT NULL,
+  service_name    text NOT NULL,                 -- copia al momento della prenotazione
+  price_minor     bigint NOT NULL,               -- copia (con override del collaboratore); il conto vero è nella vendita
+  sort_order      int NOT NULL DEFAULT 0,
+  blocking        boolean NOT NULL DEFAULT true, -- false quando l'appuntamento passa a CANCELLED/NO_SHOW
+  forced_overlap  boolean NOT NULL DEFAULT false,-- true = sovrapposizione inserita da ADMIN
+  CHECK (ends_at > starts_at)
+);
+
+-- Anti-doppia-prenotazione nel DB: lo stesso collaboratore non può avere due righe sovrapposte,
+-- tranne quelle forzate dall'admin. Le righe forzate restano comunque occupate per la prenotazione online.
+ALTER TABLE appointment_item ADD CONSTRAINT no_staff_overlap
+  EXCLUDE USING gist (staff_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&)
+  WHERE (blocking AND NOT forced_overlap);
+```
+
+Tolti rispetto all'originale: `location_id`, `source` (online = creato da un utente CLIENT), stati intermedi
+(`CONFIRMED`, `ARRIVED`, `IN_PROGRESS`), `cancelled_by`/`cancellation_reason`, `confirmation_token` (chi prenota online
+ha un account), `variant_name`/`discount`/`tax_rate_bp` (sconti e IVA si gestiscono nella vendita),
+`resource_id`/`no_resource_overlap`, `appointment_status_history`.
+
+```sql
+-- ORIGINALE (riferimento)
 -- [std] Appuntamento = contenitore di una o più righe-servizio consecutive/parallele
 CREATE TABLE appointment (
   location_id uuid NOT NULL REFERENCES location(id),

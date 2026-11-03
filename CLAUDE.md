@@ -25,7 +25,7 @@ Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identit
 Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa),
 `client` / `client_source` / `client_tag` / `client_tag_assignment`.
 
-**Ripartire da: `appointment` (DATA_MODEL.md §4.6).**
+**Ripartire da: `appointment` (DATA_MODEL.md §4.6).** Proposta già scritta lì; in attesa delle risposte dell'utente.
 
 Ordine successivo: `appointment` → vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
 
