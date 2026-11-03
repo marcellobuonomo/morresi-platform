@@ -359,15 +359,14 @@ telefono non unico (mamma e figlia); provenienza da elenco gestito dall'admin (s
 
 ### 4.6 Prenotazioni (cuore del sistema)
 
-> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
-
 ```sql
--- PROPOSTA
+-- ✅ Approvato (2026-11-03)
 -- [std] Appuntamento = contenitore di una o più righe-servizio (es. balayage + taglio + piega)
 CREATE TABLE appointment (
-  client_id            uuid REFERENCES client(id),     -- NULL = cliente di passaggio senza scheda (da decidere)
+  client_id            uuid REFERENCES client(id),     -- NULL = cliente anonimo: lo può creare solo ADMIN
   status               text NOT NULL DEFAULT 'BOOKED'
-    CHECK (status IN ('BOOKED','COMPLETED','CANCELLED','NO_SHOW')),
+    CHECK (status IN ('BOOKED','CONFIRMED','COMPLETED','CANCELLED','NO_SHOW')),
+  confirmed_at         timestamptz,                    -- quando è passato a CONFIRMED
   starts_at            timestamptz NOT NULL,           -- = min(items.starts_at), per l'agenda
   ends_at              timestamptz NOT NULL,           -- = max(items.ends_at)
   client_notes         text,                           -- scritte dal cliente prenotando online
@@ -404,69 +403,15 @@ ALTER TABLE appointment_item ADD CONSTRAINT no_staff_overlap
 ```
 
 Tolti rispetto all'originale: `location_id`, `source` (online = creato da un utente CLIENT), stati intermedi
-(`CONFIRMED`, `ARRIVED`, `IN_PROGRESS`), `cancelled_by`/`cancellation_reason`, `confirmation_token` (chi prenota online
+(`ARRIVED`, `IN_PROGRESS`), `cancelled_by`/`cancellation_reason`, `confirmation_token` (chi prenota online
 ha un account), `variant_name`/`discount`/`tax_rate_bp` (sconti e IVA si gestiscono nella vendita),
 `resource_id`/`no_resource_overlap`, `appointment_status_history`.
 
-```sql
--- ORIGINALE (riferimento)
--- [std] Appuntamento = contenitore di una o più righe-servizio consecutive/parallele
-CREATE TABLE appointment (
-  location_id uuid NOT NULL REFERENCES location(id),
-  client_id uuid REFERENCES client(id),            -- null = cliente di passaggio senza anagrafica
-  status text NOT NULL DEFAULT 'BOOKED'
-    CHECK (status IN ('BOOKED','CONFIRMED','ARRIVED','IN_PROGRESS','COMPLETED','CANCELLED','NO_SHOW')),
-  source text NOT NULL DEFAULT 'BACKOFFICE'
-    CHECK (source IN ('BACKOFFICE','ONLINE','MARKETPLACE','PHONE','WALK_IN','API')),
-  starts_at timestamptz NOT NULL,                  -- = min(items.starts_at), denormalizzato
-  ends_at timestamptz NOT NULL,                    -- = max(items.ends_at)
-  client_notes text,                               -- note del cliente in fase di prenotazione
-  internal_notes text,
-  cancelled_at timestamptz,
-  cancelled_by text CHECK (cancelled_by IN ('CLIENT','BUSINESS','SYSTEM')),
-  cancellation_reason text,
-  late_cancellation boolean NOT NULL DEFAULT false,
-  confirmation_token text UNIQUE,                  -- link gestione prenotazione per il cliente
-  created_by_member_id uuid REFERENCES business_member(id),
-  CHECK (ends_at > starts_at)
-);
-CREATE INDEX ix_appt_calendar ON appointment (business_id, location_id, starts_at);
-CREATE INDEX ix_appt_client ON appointment (business_id, client_id, starts_at DESC);
-
--- [std] Riga-servizio dell'appuntamento
-CREATE TABLE appointment_item (
-  appointment_id uuid NOT NULL REFERENCES appointment(id) ON DELETE CASCADE,
-  service_variant_id uuid NOT NULL REFERENCES service_variant(id),
-  staff_id uuid NOT NULL REFERENCES staff(id),
-  resource_id uuid REFERENCES resource(id),
-  starts_at timestamptz NOT NULL,
-  ends_at timestamptz NOT NULL,
-  -- snapshot
-  service_name text NOT NULL, variant_name text,
-  price_minor bigint NOT NULL, discount_minor bigint NOT NULL DEFAULT 0,
-  tax_rate_bp int NOT NULL DEFAULT 0,
-  sort_order int NOT NULL DEFAULT 0,
-  blocking boolean NOT NULL DEFAULT true,          -- false se l'appuntamento è CANCELLED/NO_SHOW
-  CHECK (ends_at > starts_at)
-);
-
--- Anti-doppia-prenotazione a livello DB: un operatore non può avere due righe bloccanti sovrapposte
-ALTER TABLE appointment_item ADD CONSTRAINT no_staff_overlap
-  EXCLUDE USING gist (staff_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&)
-  WHERE (blocking);
--- Idem per le risorse fisiche (se valorizzate)
-ALTER TABLE appointment_item ADD CONSTRAINT no_resource_overlap
-  EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at, '[)') WITH &&)
-  WHERE (blocking AND resource_id IS NOT NULL);
-
--- [std]
-CREATE TABLE appointment_status_history (
-  appointment_id uuid NOT NULL REFERENCES appointment(id) ON DELETE CASCADE,
-  from_status text, to_status text NOT NULL,
-  changed_by_member_id uuid REFERENCES business_member(id),
-  note text
-);
-```
+Decisioni (2026-11-03): solo `CONFIRMED` in più; provenienza = basta sapere se online; appuntamento
+anonimo (senza cliente) ammesso ma solo da ADMIN; niente storico modifiche; niente motivo disdetta.
+Promemoria e conferma solo per clienti registrati (`client.user_id` valorizzato): il cliente conferma dall'app dopo il
+login, quindi niente `confirmation_token`. L'appuntamento anonimo è tipicamente un cliente arrivato in salone che non vuole
+registrarsi: l'admin lo inserisce solo per le statistiche, senza promemoria né conferma.
 
 ### 4.7 Vendite e pagamenti
 
