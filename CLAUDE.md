@@ -26,13 +26,15 @@ Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identit
 `shift_template` / `staff_week_pattern`. Decisa anche la sovrapposizione appuntamenti solo da ADMIN.
 Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa),
 `client` / `client_source` / `client_tag` / `client_tag_assignment`, `appointment` / `appointment_item`
-(sovrapposizione admin = `forced_overlap`; promemoria/conferma solo a clienti registrati),
+(sovrapposizione admin = `forced_overlap`; conferma dall'app solo per clienti registrati),
 `sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND),
 `product` (solo elenco prodotti; magazzino in sospeso finché il cliente non decide). Buoni in sospeso.
+Notifiche `marketing_campaign` (solo email) / `notification_log`: WhatsApp a ogni cliente con telefono, lingua da
+`client.nationality`, testi fissi en/it, avvisi email al salone.
 
-**Ripartire da: notifiche (DATA_MODEL.md §4.9).** Proposta già scritta lì; in attesa delle risposte dell'utente. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: recensioni (DATA_MODEL.md §4.9).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Ordine successivo: notifiche → recensioni → tabelle di piattaforma. In sospeso: magazzino (§4.8), buoni (§4.9).
+Ordine successivo: recensioni → tabelle di piattaforma. In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

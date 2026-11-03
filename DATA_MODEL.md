@@ -159,7 +159,10 @@ CREATE TABLE salon_settings (
   no_show_block_threshold    int NOT NULL DEFAULT 3,    -- dopo N assenze niente prenotazione online
   -- Pagamenti online (Stripe) e acconto (2026-11-03)
   online_payments_enabled    boolean NOT NULL DEFAULT false,
-  deposit_percent_bp         int NOT NULL DEFAULT 1000  -- 10%; rimborsato se disdetta entro cancellation_window_hours
+  deposit_percent_bp         int NOT NULL DEFAULT 1000, -- 10%; rimborsato se disdetta entro cancellation_window_hours
+  -- Notifiche (2026-11-03)
+  reminder_hours_before      int NOT NULL DEFAULT 24,
+  notification_email         text                       -- avvisi al salone (NULL = email)
 );
 
 -- ❌ business_member eliminata (single-tenant): il ruolo è su app_user.
@@ -333,6 +336,7 @@ CREATE TABLE client (
   birth_date                    date,
   notes                         text,                  -- un solo campo modificabile, niente storico
   source_id                     uuid REFERENCES client_source(id),
+  nationality                   char(2),               -- ISO 3166-1 alpha-2; 'IT' = messaggi in italiano, altrimenti inglese
   marketing_email_consent_at    timestamptz,           -- NULL = nessun consenso
   marketing_sms_consent_at      timestamptz,
   marketing_whatsapp_consent_at timestamptz,
@@ -415,8 +419,9 @@ ha un account), `variant_name`/`discount`/`tax_rate_bp` (sconti e IVA si gestisc
 
 Decisioni (2026-11-03): solo `CONFIRMED` in più; provenienza = basta sapere se online; appuntamento
 anonimo (senza cliente) ammesso ma solo da ADMIN; niente storico modifiche; niente motivo disdetta.
-Promemoria e conferma solo per clienti registrati (`client.user_id` valorizzato): il cliente conferma dall'app dopo il
-login, quindi niente `confirmation_token`. L'appuntamento anonimo è tipicamente un cliente arrivato in salone che non vuole
+Conferma dall'app solo per clienti registrati (`client.user_id` valorizzato), dopo il login: niente `confirmation_token`.
+Il promemoria arriva anche ai non registrati con telefono in scheda (deciso con le notifiche); per loro la conferma la
+segna il salone. L'appuntamento anonimo è tipicamente un cliente arrivato in salone che non vuole
 registrarsi: l'admin lo inserisce solo per le statistiche, senza promemoria né conferma.
 
 ### 4.7 Vendite e pagamenti
@@ -534,24 +539,20 @@ CREATE TABLE product (
 
 #### Notifiche
 
-> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata.
->
-> Risposte dell'utente: messaggi = prenotazione ricevuta + promemoria + auguri di compleanno; canale per i clienti = WhatsApp;
-> lingua del messaggio = italiano per clienti italiani, altrimenti inglese; testi fissi (nel codice, con il nome del salone
+> Decisioni (2026-11-03): messaggi = prenotazione ricevuta + promemoria + auguri di compleanno; canale per i clienti = WhatsApp;
+> lingua del messaggio = dalla nazionalità (italiano per clienti italiani, altrimenti inglese); campagne via email;
+> messaggi anche ai clienti non registrati; testi fissi (nel codice, con il nome del salone
 > preso da `salon_settings`); avviso al salone via email per nuove prenotazioni/disdette online; campagne promozionali sì.
 
 ```sql
--- PROPOSTA
--- Modifiche a tabelle già approvate:
---   client:         locale text NOT NULL DEFAULT 'en' CHECK (locale IN ('en','it'))  -- lingua dei messaggi
---   salon_settings: reminder_hours_before int NOT NULL DEFAULT 24
---                   notification_email    text   -- dove arrivano gli avvisi al salone (NULL = salon_settings.email)
+-- ✅ Approvato (2026-11-03)
+-- Aggiunti anche: client.nationality, salon_settings.reminder_hours_before / notification_email.
 
--- [std] Campagna promozionale verso i clienti con consenso, filtrati per etichetta (NULL = tutti)
+-- [std] Campagna promozionale via EMAIL verso i clienti con consenso email, filtrati per etichetta (NULL = tutti)
 CREATE TABLE marketing_campaign (
   name        text NOT NULL,
-  channel     text NOT NULL CHECK (channel IN ('WHATSAPP','EMAIL')),
-  body        text NOT NULL,                      -- testo scritto dall'admin
+  subject     text NOT NULL,
+  body        text NOT NULL,                      -- testo libero scritto dall'admin
   tag_id      uuid REFERENCES client_tag(id),
   sent_at     timestamptz                         -- NULL = bozza
 );
@@ -574,30 +575,10 @@ CREATE TABLE notification_log (
 CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
 ```
 
-Regole: messaggi ai clienti solo se registrati e con telefono verificato. Prenotazione ricevuta e promemoria sono messaggi
-di servizio (nessun consenso marketing richiesto); auguri e campagne solo con il consenso del canale. Tolta
+Regole: prenotazione ricevuta, promemoria e auguri su WhatsApp a ogni cliente con telefono in scheda (registrato o no).
+Prenotazione ricevuta e promemoria sono messaggi di servizio (nessun consenso marketing); auguri solo con consenso
+WhatsApp; campagne solo via email e con consenso email. Modelli WhatsApp (en/it) approvati una volta da Meta. Tolta
 `notification_template` (testi fissi nel codice, file di messaggi `en`/`it`).
-
-> Riferimento originale (non approvato):
->
-> ```sql
-> -- [std]
-> CREATE TABLE notification_template (
->   type text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','CANCELLATION','RESCHEDULE','REVIEW_REQUEST','MARKETING')),
->   channel text NOT NULL CHECK (channel IN ('EMAIL','SMS','PUSH')),
->   locale text NOT NULL DEFAULT 'it', subject text, body text NOT NULL,
->   active boolean NOT NULL DEFAULT true,
->   UNIQUE (business_id, type, channel, locale)
-> );
-> CREATE TABLE notification_log (  -- [std]
->   appointment_id uuid REFERENCES appointment(id), client_id uuid REFERENCES client(id),
->   type text NOT NULL, channel text NOT NULL, recipient text NOT NULL,
->   status text NOT NULL DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED','SENT','FAILED','SKIPPED')),
->   scheduled_for timestamptz NOT NULL, sent_at timestamptz,
->   provider_message_id text, error text
-> );
-> CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
-> ```
 
 #### Recensioni e piattaforma
 
