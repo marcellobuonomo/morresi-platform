@@ -3,6 +3,8 @@
 ## Progetto
 Gestionale per **un solo salone (Morresi), una sola sede**: prenotazioni online e agenda, clienti, vendite,
 area admin con statistiche (rendimento collaboratori, clienti top per spesa, ...).
+- **Mercato: Regno Unito** (2026-11-03): il salone opera nel UK e la piattaforma è ospitata e usata lì
+  (GBP, Europe/London, IVA UK, pagamenti online con PSP disponibile nel UK).
 - **Single-tenant**: niente `business_id`/`location_id`. Un nuovo salone = nuova installazione con DB separato,
   quindi nessun dato specifico del salone nel codice (tutto in `salon_settings`).
 - Specifica di riferimento: [DATA_MODEL.md](DATA_MODEL.md). Le tabelle marcate ✅ sono approvate,
