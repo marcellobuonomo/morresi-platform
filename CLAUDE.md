@@ -37,7 +37,9 @@ tolte `outbox_event` e `idempotency_key`.
 **Migrazioni Flyway V2-V8 scritte e applicate (2026-11-03)** sul Postgres locale (riga iniziale `salon_settings` con nome
 "MORRESI HAIRSTYLIST"). La rilettura di DATA_MODEL.md §5-§10 è stata saltata su richiesta dell'utente: quelle sezioni
 citano ancora cose tolte (sedi, varianti, outbox, ruoli diversi); fa fede §4.
-**Ripartire da:** scegliere con l'utente la prima funzionalità da costruire (entity JPA + API). Limite di disdetta da
+Operazioni sul DB locale (accesso, reset, Flyway, DBeaver, JAVA_HOME): [OP_DB.md](OP_DB.md).
+**Ripartire da:** scegliere con l'utente la prima funzionalità da costruire (entity JPA + API); proposte: impostazioni
+del salone + orari di apertura, oppure catalogo servizi. Limite di disdetta da
 chiedere all'utente (è in `salon_settings`, ora 24h). In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
