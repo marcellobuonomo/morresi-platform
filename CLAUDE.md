@@ -24,7 +24,7 @@ Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identit
 `shift_template` / `staff_week_pattern`. Decisa anche la sovrapposizione appuntamenti solo da ADMIN.
 Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa).
 
-**Ripartire da: `client` (DATA_MODEL.md §4.5).**
+**Ripartire da: `client` (DATA_MODEL.md §4.5).** Proposta già scritta lì; in attesa delle risposte dell'utente.
 
 Ordine successivo: `client` → `appointment` → vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
 

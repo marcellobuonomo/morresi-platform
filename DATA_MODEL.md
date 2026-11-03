@@ -310,7 +310,36 @@ Decisioni (2026-11-03):
 
 ### 4.5 Clienti
 
+> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
+
 ```sql
+-- PROPOSTA
+-- [std] Scheda cliente: esiste anche senza account (walk-in, clienti al telefono).
+CREATE TABLE client (
+  user_id                     uuid UNIQUE REFERENCES app_user(id),  -- se il cliente si è registrato online
+  first_name                  text NOT NULL,
+  last_name                   text,                  -- obbligatorio solo nella registrazione online
+  email                       citext,
+  phone                       text,                  -- formato E.164, es. +393331234567
+  phone_verified_at           timestamptz,           -- OTP WhatsApp/SMS (già deciso con app_user)
+  birth_date                  date,
+  notes                       text,                  -- note operative (es. "allergica alla tinta X")
+  marketing_email_consent_at  timestamptz,           -- NULL = nessun consenso
+  marketing_sms_consent_at    timestamptz,
+  online_booking_blocked_at   timestamptz,           -- NULL = può prenotare online
+  deleted_at                  timestamptz
+);
+CREATE UNIQUE INDEX ux_client_email ON client (email) WHERE email IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX ix_client_search ON client USING gin
+  ((coalesce(first_name,'')||' '||coalesce(last_name,'')||' '||coalesce(phone,'')) gin_trgm_ops);
+```
+
+Blocco no-show: le assenze si contano dagli appuntamenti (stato NO_SHOW), niente contatore duplicato. Quando un'assenza
+fa raggiungere `salon_settings.no_show_block_threshold`, il sistema imposta `online_booking_blocked_at`; l'admin
+può bloccare/sbloccare a mano. Tolti rispetto all'originale: `source`, `no_show_count`, `client_tag`, `client_note`.
+
+```sql
+-- ORIGINALE (riferimento)
 -- [std]
 CREATE TABLE client (
   user_id uuid REFERENCES app_user(id),            -- se il cliente ha un account
