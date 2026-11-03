@@ -31,11 +31,13 @@ Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `servi
 `product` (solo elenco prodotti; magazzino in sospeso finché il cliente non decide). Buoni in sospeso.
 Notifiche `marketing_campaign` (solo email) / `notification_log`: WhatsApp a ogni cliente con telefono, lingua da
 `client.nationality`, testi fissi en/it, avvisi email al salone. Recensioni `review` / `review_staff_rating`
-(solo clienti registrati) + recensioni Google lette da Places API.
+(solo clienti registrati) + recensioni Google lette da Places API. `audit_log` solo per operazioni delicate;
+tolte `outbox_event` e `idempotency_key`.
 
-**Ripartire da: tabelle di piattaforma (DATA_MODEL.md §4.9: `audit_log`, `outbox_event`, `idempotency_key`).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: rilettura di DATA_MODEL.md §1-§3 e §5-§10 (convenzioni, mappa, ER, regole, API, piano, decisioni aperte)
+per allinearli alle decisioni prese (single-tenant, UK, niente varianti/risorse/outbox, ecc.).** Tabelle §4 tutte riviste. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Ordine successivo: tabelle di piattaforma, poi rilettura §5-§10 (regole, API, piano) alla luce delle decisioni. In sospeso: magazzino (§4.8), buoni (§4.9).
+Poi: migrazioni Flyway. In sospeso: magazzino (§4.8), buoni (§4.9). In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

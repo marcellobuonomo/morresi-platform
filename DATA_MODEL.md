@@ -616,29 +616,25 @@ CREATE TABLE review_staff_rating (
 #### Piattaforma
 
 ```sql
--- Piattaforma
+-- ✅ Approvato (2026-11-03)
+-- Registro append-only delle sole operazioni delicate (niente storico generico delle modifiche)
 CREATE TABLE audit_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id uuid, actor_user_id uuid,
-  action text NOT NULL, entity_type text NOT NULL, entity_id uuid,
-  before jsonb, after jsonb, ip inet,
-  created_at timestamptz NOT NULL DEFAULT now()
+  id             uuid PRIMARY KEY,                 -- UUIDv7 come le altre tabelle
+  actor_user_id  uuid NOT NULL REFERENCES app_user(id),
+  action         text NOT NULL CHECK (action IN ('SALE_CORRECTED','REFUND','ROLE_CHANGED','CLIENT_DATA_DELETED')),
+  entity_type    text NOT NULL,                    -- es. 'sale', 'payment', 'app_user', 'client'
+  entity_id      uuid NOT NULL,
+  details        jsonb NOT NULL,                   -- es. riga tolta, totale prima/dopo, ruolo vecchio/nuovo
+  created_at     timestamptz NOT NULL DEFAULT now()
 );
--- Transactional outbox: eventi di dominio pubblicati in modo affidabile (email, webhook, ecc.)
-CREATE TABLE outbox_event (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id uuid, aggregate_type text NOT NULL, aggregate_id uuid NOT NULL,
-  event_type text NOT NULL, payload jsonb NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(), processed_at timestamptz
-);
-CREATE INDEX ix_outbox_pending ON outbox_event (created_at) WHERE processed_at IS NULL;
-CREATE TABLE idempotency_key (  -- per POST di pagamento/prenotazione pubblica
-  key text PRIMARY KEY, request_hash text NOT NULL, response jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+CREATE INDEX ix_audit_entity ON audit_log (entity_type, entity_id);
 ```
 
-> Nota: `sale_item.product_id` referenzia `product`; ordina le migrazioni di conseguenza (inventory prima di sales, oppure aggiungi la FK in una migrazione successiva).
+Decisioni (2026-11-03): tolte `outbox_event` (la coda dei messaggi è già `notification_log`, scritta nella stessa
+transazione) e `idempotency_key` (doppie prenotazioni bloccate da `no_staff_overlap`, doppi pagamenti da
+`payment.stripe_reference` UNIQUE). Da `audit_log` tolti `business_id`, `ip`, `before`/`after` separati (in `details`).
+
+> Nota migrazioni: `product` (§4.8) va creata prima di `sale_item`.
 
 ## 5. Regole di business
 
