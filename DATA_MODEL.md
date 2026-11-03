@@ -34,7 +34,7 @@
 - **Soft delete** (`deleted_at timestamptz`) solo su client, service, product, staff; gli indici univoci diventano parziali `WHERE deleted_at IS NULL`.
 - **Nessun `created_by`/`updated_by` generico**: le operazioni sensibili vanno in `audit_log`.
 - **Snapshot**: righe di appuntamento e vendita copiano nome/prezzo/IVA al momento della creazione (il listino può cambiare, lo storico no).
-- **Privacy/GDPR (UE/Italia)**: consensi espliciti e datati, esportazione e cancellazione/anonimizzazione dati cliente, retention definita, nessun dato sanitario in chiaro nelle note senza base giuridica.
+- **Privacy (UK GDPR + PECR per il marketing)**: consensi espliciti e datati, esportazione e cancellazione/anonimizzazione dati cliente, retention definita, nessun dato sanitario in chiaro nelle note senza base giuridica.
 
 ## 2. Mappa dei moduli
 
@@ -128,25 +128,25 @@ CREATE TABLE user_token (
   used_at     timestamptz
 );
 
--- ✅ Approvato (2026-11-02)
+-- ✅ Approvato (2026-11-02; adattato al UK 2026-11-03)
 -- [std] Dati e regole del salone: UNA sola riga, creata dalla migrazione; l'admin può solo leggerla/modificarla.
 -- Sostituisce business + location. È ciò che si cambia replicando l'app per un altro salone.
 CREATE TABLE salon_settings (
   -- Identità
   name                       text NOT NULL,          -- insegna
   legal_name                 text,
-  vat_number                 text,
-  tax_code                   text,
+  vat_number                 text,                   -- UK VAT registration number (NULL se non registrato)
+  company_number             text,                   -- Companies House (se società)
   -- Contatti e indirizzo
   address_line               text,
   city                       text,
-  postal_code                text,
-  province                   char(2),
+  postal_code                text,                   -- UK postcode, es. SW1A 1AA
+  county                     text,
   phone                      text,
   email                      text,
   -- Localizzazione
-  timezone                   text NOT NULL DEFAULT 'Europe/Rome',
-  currency                   char(3) NOT NULL DEFAULT 'EUR',
+  timezone                   text NOT NULL DEFAULT 'Europe/London',
+  currency                   char(3) NOT NULL DEFAULT 'GBP',
   -- Regole di prenotazione online
   online_booking_enabled     boolean NOT NULL DEFAULT true,
   slot_interval_minutes      int NOT NULL DEFAULT 15 CHECK (slot_interval_minutes IN (5,10,15,20,30,60)),
@@ -284,7 +284,7 @@ CREATE TABLE service (
   duration_minutes  int NOT NULL CHECK (duration_minutes > 0),
   price_minor       bigint NOT NULL CHECK (price_minor >= 0),   -- IVA inclusa
   price_type        text NOT NULL DEFAULT 'FIXED' CHECK (price_type IN ('FIXED','FROM')),
-  vat_rate_bp       int NOT NULL DEFAULT 2200,
+  vat_rate_bp       int NOT NULL DEFAULT 2000,   -- UK standard 20%; 0 se il salone non è registrato IVA
   online_bookable   boolean NOT NULL DEFAULT true,
   sort_order        int NOT NULL DEFAULT 0,
   deleted_at        timestamptz
@@ -415,7 +415,82 @@ registrarsi: l'admin lo inserisce solo per le statistiche, senza promemoria né 
 
 ### 4.7 Vendite e pagamenti
 
+> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
+>
+> Esempio: Maria prenota balayage + taglio + piega (200 £) e paga online l'acconto del 10% (20 £). In salone compra anche
+> uno shampoo (25 £): totale 225 £, già pagati 20 £, restano 205 £ (es. 100 £ contanti + 105 £ carta al POS).
+
 ```sql
+-- PROPOSTA
+-- Modifiche a tabelle già approvate (acconto):
+--   salon_settings: online_payments_enabled boolean NOT NULL DEFAULT false,
+--                   deposit_percent_bp     int NOT NULL DEFAULT 1000      -- 10%
+--   service:        deposit_required       boolean NOT NULL DEFAULT false -- admin: acconto obbligatorio online
+--   appointment:    stato 'PENDING_PAYMENT' = in attesa del pagamento online; scade dopo pochi minuti e libera l'orario
+-- Rimborso dell'acconto: se la disdetta arriva prima di salon_settings.cancellation_window_hours si rimborsa, altrimenti no.
+
+-- Numerazione progressiva per anno (riga bloccata con SELECT ... FOR UPDATE: nessun buco)
+CREATE TABLE sale_sequence (
+  year         int PRIMARY KEY,
+  last_number  int NOT NULL DEFAULT 0
+);
+
+-- [std] Vendita = il conto. Per un appuntamento si apre alla prenotazione (per registrare l'acconto online).
+-- Si può aprire anche senza appuntamento (es. solo un prodotto).
+CREATE TABLE sale (
+  appointment_id      uuid UNIQUE REFERENCES appointment(id),
+  client_id           uuid REFERENCES client(id),
+  status              text NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','COMPLETED','CANCELLED')),
+  number              text UNIQUE,              -- assegnato al completamento, es. 2026/000123
+  discount_minor      bigint NOT NULL DEFAULT 0 CHECK (discount_minor >= 0),  -- sconto sul totale
+  total_minor         bigint NOT NULL DEFAULT 0,  -- calcolato dal server: somma righe - sconto
+  completed_at        timestamptz,
+  created_by_user_id  uuid REFERENCES app_user(id)   -- NULL se aperta da una prenotazione online
+);
+-- Correzione di una vendita completata: si toglie/modifica la riga e il totale si ricalcola.
+
+-- [std] Riga della vendita
+CREATE TABLE sale_item (
+  sale_id              uuid NOT NULL REFERENCES sale(id) ON DELETE CASCADE,
+  item_type            text NOT NULL CHECK (item_type IN ('SERVICE','PRODUCT')),
+  appointment_item_id  uuid REFERENCES appointment_item(id),
+  service_id           uuid REFERENCES service(id),
+  product_id           uuid REFERENCES product(id),
+  staff_id             uuid REFERENCES staff(id),     -- per le statistiche di rendimento
+  description          text NOT NULL,                 -- copia del nome
+  quantity             int NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_price_minor     bigint NOT NULL CHECK (unit_price_minor >= 0),  -- IVA inclusa
+  discount_minor       bigint NOT NULL DEFAULT 0 CHECK (discount_minor >= 0),  -- sconto sulla riga
+  vat_rate_bp          int NOT NULL,
+  total_minor          bigint NOT NULL,               -- quantity * unit_price - discount
+  CHECK ((item_type = 'SERVICE') = (service_id IS NOT NULL)),
+  CHECK ((item_type = 'PRODUCT') = (product_id IS NOT NULL))
+);
+
+-- [std] Incassi e restituzioni. Saldo = somma PAYMENT riusciti - somma REFUND riusciti.
+CREATE TABLE payment (
+  sale_id             uuid NOT NULL REFERENCES sale(id),
+  kind                text NOT NULL DEFAULT 'PAYMENT' CHECK (kind IN ('PAYMENT','REFUND')),
+  method              text NOT NULL CHECK (method IN ('CASH','CARD','ONLINE','BANK_TRANSFER','OTHER')),
+                                                      -- CARD = POS in salone; ONLINE = Stripe
+  status              text NOT NULL DEFAULT 'SUCCEEDED' CHECK (status IN ('PENDING','SUCCEEDED','FAILED')),
+                                                      -- PENDING/FAILED solo per ONLINE
+  amount_minor        bigint NOT NULL CHECK (amount_minor > 0),
+  stripe_reference    text UNIQUE,                    -- id pagamento/rimborso Stripe (solo ONLINE)
+  paid_at             timestamptz,
+  created_by_user_id  uuid REFERENCES app_user(id)
+);
+```
+
+Tolti rispetto all'originale: `location_id`, `subtotal_minor`/`tax_minor` (calcolabili dalle righe), `tip_minor` (niente mance),
+stati `VOIDED`/`REFUNDED` (la vendita si corregge), tipi riga `VOUCHER`/`PACKAGE`/`CUSTOM` (buoni: sezione dedicata),
+`quantity` decimale, tabella `refund` (i rimborsi sono righe `payment` con `kind = 'REFUND'`).
+
+Pagamento online (Stripe, UK): il cliente paga su pagina Stripe; l'esito arriva al server via webhook (idempotente, mai fidarsi
+del browser); rimborso acconto via API Stripe. Correzioni in salone dopo il pagamento: differenza restituita in contanti.
+
+```sql
+-- ORIGINALE (riferimento)
 -- [std] Numerazione progressiva per sede/anno (lock di riga su incremento)
 CREATE TABLE sale_sequence (
   location_id uuid NOT NULL REFERENCES location(id),
@@ -618,7 +693,7 @@ BOOKED → CONFIRMED → ARRIVED → IN_PROGRESS → COMPLETED
 - Una vendita completata non si modifica: si **annulla** (`VOIDED`) o si **rimborsa** (`refund`).
 - Pagamenti online via PSP (Stripe consigliato): webhook idempotenti, mai fidarsi del client per l'esito.
 - Pagamento con `VOUCHER` → riga in `voucher_transaction` con delta negativo, nella stessa transazione.
-- **Fiscalità italiana** (registratore telematico / documento commerciale / fattura elettronica / SDI): **fuori scope** in questa versione. Predisporre solo l'astrazione `FiscalDocumentService` per integrarla in seguito.
+- **Fiscalità**: salone nel UK, la ricevuta la emette la cassa; il gestionale tiene solo il numero progressivo interno.
 
 ### 5.5 Magazzino
 
@@ -688,10 +763,10 @@ GET  /public/appointments/{token}   PATCH/DELETE    gestione da parte del client
 
 ## 10. Decisioni aperte (da chiedermi prima di implementare)
 
-1. ~~**Overbooking**~~ ✅ Deciso (2026-11-02): **solo ADMIN** può inserire un appuntamento sovrapposto (es. cliente che chiama a disponibilità esaurite). L'appuntamento forzato deve **restare occupato** per la prenotazione online (non usare `blocking = false`). Modellazione da definire con `appointment`.
-2. **Tempi di posa/attesa** (es. colore in posa): l'operatore è libero durante `processing_minutes`? Se sì, la riga va spezzata in più intervalli.
+1. ~~**Overbooking**~~ ✅ Deciso (2026-11-02): **solo ADMIN** può inserire un appuntamento sovrapposto (es. cliente che chiama a disponibilità esaurite). L'appuntamento forzato deve **restare occupato** per la prenotazione online (non usare `blocking = false`). Modellato con `appointment_item.forced_overlap` (2026-11-03).
+2. ~~**Tempi di posa/attesa**~~ ✅ Deciso (2026-11-03): non modellati; l'admin sovrappone a mano (`forced_overlap`).
 3. **Acconti/caparre** online e politica di rimborso.
-4. **Fatturazione/fiscalità** italiana: integrare un provider esterno o rimandare?
+4. ~~**Fatturazione/fiscalità**~~ ✅ Deciso (2026-11-03): salone nel UK, la ricevuta la fa la cassa; nel gestionale solo numero progressivo interno.
 5. **Marketplace** multi-business pubblico: sì/no, e in quale fase.
 6. **Lingue** supportate oltre l'italiano (i18n per template e UI).
 7. **Hosting e scalabilità** attesi (numero di business e prenotazioni/giorno) per decidere su partizionamento e caching.

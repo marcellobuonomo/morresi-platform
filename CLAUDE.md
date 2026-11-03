@@ -28,7 +28,7 @@ Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `servi
 `client` / `client_source` / `client_tag` / `client_tag_assignment`, `appointment` / `appointment_item`
 (sovrapposizione admin = `forced_overlap`; promemoria/conferma solo a clienti registrati).
 
-**Ripartire da: vendite e pagamenti (DATA_MODEL.md §4.7).**
+**Ripartire da: vendite e pagamenti (DATA_MODEL.md §4.7).** Proposta già scritta lì; in attesa dell'ok dell'utente e del limite di disdetta.
 
 Ordine successivo: vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
 
