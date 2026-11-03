@@ -156,7 +156,10 @@ CREATE TABLE salon_settings (
   cancellation_window_hours  int NOT NULL DEFAULT 24,   -- disdetta più tardi = tardiva
   -- Anti no-show
   max_open_online_bookings   int NOT NULL DEFAULT 2,    -- appuntamenti futuri prenotabili online per cliente
-  no_show_block_threshold    int NOT NULL DEFAULT 3     -- dopo N assenze niente prenotazione online
+  no_show_block_threshold    int NOT NULL DEFAULT 3,    -- dopo N assenze niente prenotazione online
+  -- Pagamenti online (Stripe) e acconto (2026-11-03)
+  online_payments_enabled    boolean NOT NULL DEFAULT false,
+  deposit_percent_bp         int NOT NULL DEFAULT 1000  -- 10%; rimborsato se disdetta entro cancellation_window_hours
 );
 
 -- ❌ business_member eliminata (single-tenant): il ruolo è su app_user.
@@ -286,6 +289,7 @@ CREATE TABLE service (
   price_type        text NOT NULL DEFAULT 'FIXED' CHECK (price_type IN ('FIXED','FROM')),
   vat_rate_bp       int NOT NULL DEFAULT 2000,   -- UK standard 20%; 0 se il salone non è registrato IVA
   online_bookable   boolean NOT NULL DEFAULT true,
+  deposit_required  boolean NOT NULL DEFAULT false,  -- acconto obbligatorio online (2026-11-03)
   sort_order        int NOT NULL DEFAULT 0,
   deleted_at        timestamptz
 );
@@ -300,7 +304,7 @@ CREATE TABLE service_staff (
 );
 ```
 
-Tolti rispetto all'originale: `tax_rate` (IVA sul servizio), campi acconto (finché non si decide sulle caparre), price_type `FREE` (basta prezzo 0), `service_location` (sede unica), `resource`/`service_resource` (solo se le attrezzature diventano un collo di bottiglia).
+Tolti rispetto all'originale: `tax_rate` (IVA sul servizio), campi acconto originali (sostituiti da `deposit_required` + `salon_settings.deposit_percent_bp`), price_type `FREE` (basta prezzo 0), `service_location` (sede unica), `resource`/`service_resource` (solo se le attrezzature diventano un collo di bottiglia).
 
 Decisioni (2026-11-03):
 - Niente varianti: versioni diverse = servizi distinti (es. "Taglio corti", "Taglio lunghi").
@@ -365,7 +369,9 @@ telefono non unico (mamma e figlia); provenienza da elenco gestito dall'admin (s
 CREATE TABLE appointment (
   client_id            uuid REFERENCES client(id),     -- NULL = cliente anonimo: lo può creare solo ADMIN
   status               text NOT NULL DEFAULT 'BOOKED'
-    CHECK (status IN ('BOOKED','CONFIRMED','COMPLETED','CANCELLED','NO_SHOW')),
+    CHECK (status IN ('PENDING_PAYMENT','BOOKED','CONFIRMED','COMPLETED','CANCELLED','NO_SHOW')),
+                                                       -- PENDING_PAYMENT: in attesa di Stripe, tiene l'orario
+                                                       -- pochi minuti dopo created_at, poi scade (CANCELLED)
   confirmed_at         timestamptz,                    -- quando è passato a CONFIRMED
   starts_at            timestamptz NOT NULL,           -- = min(items.starts_at), per l'agenda
   ends_at              timestamptz NOT NULL,           -- = max(items.ends_at)
@@ -415,19 +421,13 @@ registrarsi: l'admin lo inserisce solo per le statistiche, senza promemoria né 
 
 ### 4.7 Vendite e pagamenti
 
-> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
->
 > Esempio: Maria prenota balayage + taglio + piega (200 £) e paga online l'acconto del 10% (20 £). In salone compra anche
 > uno shampoo (25 £): totale 225 £, già pagati 20 £, restano 205 £ (es. 100 £ contanti + 105 £ carta al POS).
 
 ```sql
--- PROPOSTA
--- Modifiche a tabelle già approvate (acconto):
---   salon_settings: online_payments_enabled boolean NOT NULL DEFAULT false,
---                   deposit_percent_bp     int NOT NULL DEFAULT 1000      -- 10%
---   service:        deposit_required       boolean NOT NULL DEFAULT false -- admin: acconto obbligatorio online
---   appointment:    stato 'PENDING_PAYMENT' = in attesa del pagamento online; scade dopo pochi minuti e libera l'orario
--- Rimborso dell'acconto: se la disdetta arriva prima di salon_settings.cancellation_window_hours si rimborsa, altrimenti no.
+-- ✅ Approvato (2026-11-03)
+-- Acconto: salon_settings.online_payments_enabled / deposit_percent_bp, service.deposit_required,
+-- appointment.status 'PENDING_PAYMENT'. Rimborso se disdetta prima di cancellation_window_hours, altrimenti no.
 
 -- Numerazione progressiva per anno (riga bloccata con SELECT ... FOR UPDATE: nessun buco)
 CREATE TABLE sale_sequence (
@@ -488,70 +488,6 @@ stati `VOIDED`/`REFUNDED` (la vendita si corregge), tipi riga `VOUCHER`/`PACKAGE
 
 Pagamento online (Stripe, UK): il cliente paga su pagina Stripe; l'esito arriva al server via webhook (idempotente, mai fidarsi
 del browser); rimborso acconto via API Stripe. Correzioni in salone dopo il pagamento: differenza restituita in contanti.
-
-```sql
--- ORIGINALE (riferimento)
--- [std] Numerazione progressiva per sede/anno (lock di riga su incremento)
-CREATE TABLE sale_sequence (
-  location_id uuid NOT NULL REFERENCES location(id),
-  year int NOT NULL, last_number int NOT NULL DEFAULT 0,
-  PRIMARY KEY (location_id, year)
-);
-
--- [std] Vendita/scontrino
-CREATE TABLE sale (
-  location_id uuid NOT NULL REFERENCES location(id),
-  appointment_id uuid REFERENCES appointment(id),
-  client_id uuid REFERENCES client(id),
-  number text,                                     -- assegnato al completamento, es. 2026/000123
-  status text NOT NULL DEFAULT 'DRAFT'
-    CHECK (status IN ('DRAFT','COMPLETED','VOIDED','PARTIALLY_REFUNDED','REFUNDED')),
-  subtotal_minor bigint NOT NULL DEFAULT 0,
-  discount_minor bigint NOT NULL DEFAULT 0,
-  tax_minor bigint NOT NULL DEFAULT 0,
-  tip_minor bigint NOT NULL DEFAULT 0,
-  total_minor bigint NOT NULL DEFAULT 0,
-  issued_at timestamptz,
-  created_by_member_id uuid REFERENCES business_member(id),
-  UNIQUE (business_id, location_id, number)
-);
-
--- [std]
-CREATE TABLE sale_item (
-  sale_id uuid NOT NULL REFERENCES sale(id) ON DELETE CASCADE,
-  item_type text NOT NULL CHECK (item_type IN ('SERVICE','PRODUCT','VOUCHER','PACKAGE','CUSTOM')),
-  appointment_item_id uuid REFERENCES appointment_item(id),
-  product_id uuid REFERENCES product(id),
-  staff_id uuid REFERENCES staff(id),              -- per le commissioni
-  description text NOT NULL,
-  quantity numeric(10,3) NOT NULL DEFAULT 1,
-  unit_price_minor bigint NOT NULL,
-  discount_minor bigint NOT NULL DEFAULT 0,
-  tax_rate_bp int NOT NULL DEFAULT 0,
-  tax_minor bigint NOT NULL DEFAULT 0,
-  total_minor bigint NOT NULL
-);
-
--- [std]
-CREATE TABLE payment (
-  sale_id uuid NOT NULL REFERENCES sale(id),
-  method text NOT NULL CHECK (method IN ('CASH','CARD_POS','CARD_ONLINE','BANK_TRANSFER','VOUCHER','OTHER')),
-  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCEEDED','FAILED','CANCELLED')),
-  amount_minor bigint NOT NULL CHECK (amount_minor > 0),
-  provider text,                                   -- es. 'stripe'
-  provider_reference text,                         -- payment_intent id
-  paid_at timestamptz
-);
-CREATE UNIQUE INDEX ux_payment_provider_ref ON payment (provider, provider_reference) WHERE provider_reference IS NOT NULL;
-
--- [std]
-CREATE TABLE refund (
-  payment_id uuid NOT NULL REFERENCES payment(id),
-  amount_minor bigint NOT NULL CHECK (amount_minor > 0),
-  reason text, provider_reference text,
-  status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCEEDED','FAILED'))
-);
-```
 
 ### 4.8 Prodotti e magazzino
 
@@ -765,7 +701,7 @@ GET  /public/appointments/{token}   PATCH/DELETE    gestione da parte del client
 
 1. ~~**Overbooking**~~ ✅ Deciso (2026-11-02): **solo ADMIN** può inserire un appuntamento sovrapposto (es. cliente che chiama a disponibilità esaurite). L'appuntamento forzato deve **restare occupato** per la prenotazione online (non usare `blocking = false`). Modellato con `appointment_item.forced_overlap` (2026-11-03).
 2. ~~**Tempi di posa/attesa**~~ ✅ Deciso (2026-11-03): non modellati; l'admin sovrappone a mano (`forced_overlap`).
-3. **Acconti/caparre** online e politica di rimborso.
+3. ~~**Acconti/caparre**~~ ✅ Deciso (2026-11-03): acconto 10% (o totale) via Stripe, obbligatorio per servizio a scelta dell'admin; rimborso solo se disdetta in tempo.
 4. ~~**Fatturazione/fiscalità**~~ ✅ Deciso (2026-11-03): salone nel UK, la ricevuta la fa la cassa; nel gestionale solo numero progressivo interno.
 5. **Marketplace** multi-business pubblico: sì/no, e in quale fase.
 6. **Lingue** supportate oltre l'italiano (i18n per template e UI).

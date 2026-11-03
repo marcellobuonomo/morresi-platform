@@ -26,11 +26,12 @@ Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identit
 `shift_template` / `staff_week_pattern`. Decisa anche la sovrapposizione appuntamenti solo da ADMIN.
 Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa),
 `client` / `client_source` / `client_tag` / `client_tag_assignment`, `appointment` / `appointment_item`
-(sovrapposizione admin = `forced_overlap`; promemoria/conferma solo a clienti registrati).
+(sovrapposizione admin = `forced_overlap`; promemoria/conferma solo a clienti registrati),
+`sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND).
 
-**Ripartire da: vendite e pagamenti (DATA_MODEL.md §4.7).** Proposta già scritta lì; in attesa dell'ok dell'utente e del limite di disdetta.
+**Ripartire da: magazzino (DATA_MODEL.md §4.8).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Ordine successivo: vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
+Ordine successivo: magazzino → buoni, notifiche, piattaforma.
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
