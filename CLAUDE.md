@@ -22,11 +22,11 @@ dopo, quando il modello è approvato.
 Approvati (2026-11-02): convenzioni comuni (passo 0), `app_user` / `user_identity` / `user_token`,
 `salon_settings` / `opening_hours` / `schedule_exception`, `staff` / `staff_shift` / `staff_time_block` /
 `shift_template` / `staff_week_pattern`. Decisa anche la sovrapposizione appuntamenti solo da ADMIN.
+Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `service_staff` (niente varianti, niente posa).
 
-**Ripartire da: catalogo servizi (DATA_MODEL.md §4.4).** Proposta già scritta lì; l'utente deve rispondere
-a 3 domande (varianti, tempo di posa, prezzo/durata per collaboratore) prima dell'ok.
+**Ripartire da: `client` (DATA_MODEL.md §4.5).**
 
-Ordine successivo: catalogo → `client` → `appointment` → vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
+Ordine successivo: `client` → `appointment` → vendite/pagamenti → magazzino → buoni, notifiche, piattaforma.
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

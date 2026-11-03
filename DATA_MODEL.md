@@ -265,13 +265,11 @@ CREATE TABLE staff_week_pattern (
 
 ### 4.4 Catalogo servizi
 
-> 🟡 **IN DISCUSSIONE (2026-11-02)** — proposta sotto, non ancora approvata. Il DDL originale più in basso resta solo come riferimento.
->
-> Esempio di partenza dell'utente: balayage 50 min / 100 € + taglio 20 min / 80 € + piega 10 min / 20 € = 80 min / 200 €.
+> Esempio: balayage 50 min / 100 € + taglio 20 min / 80 € + piega 10 min / 20 € = 80 min / 200 €.
 > Servizi cumulabili: durata e prezzo si sommano nell'ordine di scelta (l'admin può riordinare). Tutto configurato dall'admin.
 
 ```sql
--- PROPOSTA
+-- ✅ Approvato (2026-11-03)
 -- [std]
 CREATE TABLE service_category (
   name        text NOT NULL,                     -- es. "Colore", "Taglio", "Piega"
@@ -292,88 +290,23 @@ CREATE TABLE service (
   deleted_at        timestamptz
 );
 
--- Chi può eseguire quale servizio
+-- Chi può eseguire quale servizio, con prezzo/durata facoltativi diversi dallo standard
 CREATE TABLE service_staff (
-  service_id  uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
-  staff_id    uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  service_id                uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
+  staff_id                  uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+  price_override_minor      bigint CHECK (price_override_minor >= 0),        -- NULL = prezzo del servizio
+  duration_override_minutes int CHECK (duration_override_minutes > 0),       -- NULL = durata del servizio
   PRIMARY KEY (service_id, staff_id)
 );
 ```
 
 Tolti rispetto all'originale: `tax_rate` (IVA sul servizio), campi acconto (finché non si decide sulle caparre), price_type `FREE` (basta prezzo 0), `service_location` (sede unica), `resource`/`service_resource` (solo se le attrezzature diventano un collo di bottiglia).
 
-**Domande aperte a cui l'utente deve rispondere prima dell'ok:**
-1. **Varianti**: stesso servizio con durata/prezzo diversi (es. taglio corti 20 min/25 €, lunghi 30 min/35 €)? Sì → `service_variant`; no → servizi distinti.
-2. **Tempo di posa**: durante la posa (es. 25 dei 50 min del balayage) il collaboratore è libero per un altro cliente? Sì → servizio in fasi lavoro/posa/lavoro (agenda più efficiente, motore di disponibilità più complesso); no → durata piena occupata.
-3. **Prezzo/durata per collaboratore**: stesso servizio con prezzo o durata diversi in base a chi lo esegue (titolare vs junior)? Sì → override facoltativi su `service_staff`; no → resta com'è.
-
-```sql
--- ORIGINALE (riferimento)
--- [std]
-CREATE TABLE tax_rate (
-  name text NOT NULL,                              -- es. "IVA 22%"
-  rate_bp int NOT NULL CHECK (rate_bp >= 0),       -- 2200 = 22%
-  prices_include_tax boolean NOT NULL DEFAULT true,
-  active boolean NOT NULL DEFAULT true
-);
-
--- [std]
-CREATE TABLE service_category (
-  name text NOT NULL, color char(7), sort_order int NOT NULL DEFAULT 0
-);
-
--- [std]
-CREATE TABLE service (
-  category_id uuid REFERENCES service_category(id),
-  name text NOT NULL,
-  description text,
-  tax_rate_id uuid REFERENCES tax_rate(id),
-  online_bookable boolean NOT NULL DEFAULT true,
-  requires_deposit boolean NOT NULL DEFAULT false,
-  deposit_percent_bp int,
-  active boolean NOT NULL DEFAULT true,
-  sort_order int NOT NULL DEFAULT 0,
-  deleted_at timestamptz
-);
-
--- [std] Varianti di durata/prezzo (es. "Taglio capelli corti" / "lunghi")
-CREATE TABLE service_variant (
-  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  duration_minutes int NOT NULL CHECK (duration_minutes > 0),
-  price_minor bigint NOT NULL CHECK (price_minor >= 0),
-  price_type text NOT NULL DEFAULT 'FIXED' CHECK (price_type IN ('FIXED','FROM','FREE')),
-  sort_order int NOT NULL DEFAULT 0,
-  active boolean NOT NULL DEFAULT true
-);
-
--- Chi può erogare cosa, con override opzionali per operatore
-CREATE TABLE service_staff (
-  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
-  staff_id uuid NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-  price_override_minor bigint,
-  duration_override_minutes int,
-  PRIMARY KEY (service_id, staff_id)
-);
-
-CREATE TABLE service_location (
-  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
-  location_id uuid NOT NULL REFERENCES location(id) ON DELETE CASCADE,
-  PRIMARY KEY (service_id, location_id)
-);
-
--- [std] Risorse fisiche (poltrona, cabina, lettino) — Fase 2+
-CREATE TABLE resource (
-  location_id uuid NOT NULL REFERENCES location(id),
-  name text NOT NULL, type text,
-  active boolean NOT NULL DEFAULT true
-);
-CREATE TABLE service_resource (
-  service_id uuid NOT NULL REFERENCES service(id) ON DELETE CASCADE,
-  resource_id uuid NOT NULL REFERENCES resource(id) ON DELETE CASCADE,
-  PRIMARY KEY (service_id, resource_id)
-);
-```
+Decisioni (2026-11-03):
+- Niente varianti: versioni diverse = servizi distinti (es. "Taglio corti", "Taglio lunghi").
+- Niente tempo di posa nel modello: il collaboratore è occupato per tutta la durata. Se durante la posa si vuole
+  inserire un altro lavoro, lo fa l'admin sovrapponendo gli appuntamenti (sovrapposizione solo da ADMIN).
+- Prezzo/durata per collaboratore: override facoltativi su `service_staff` (NULL = valore del servizio).
 
 ### 4.5 Clienti
 
