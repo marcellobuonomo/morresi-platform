@@ -513,20 +513,26 @@ CREATE TABLE product (
 
 ### 4.9 Buoni, notifiche, recensioni, piattaforma
 
-```sql
--- [std] Buono regalo / credito prepagato (Fase 3)
-CREATE TABLE voucher (
-  code text NOT NULL, client_id uuid REFERENCES client(id),
-  initial_minor bigint NOT NULL, balance_minor bigint NOT NULL CHECK (balance_minor >= 0),
-  expires_at timestamptz, issued_sale_item_id uuid REFERENCES sale_item(id),
-  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','EXHAUSTED','EXPIRED','VOIDED')),
-  UNIQUE (business_id, code)
-);
-CREATE TABLE voucher_transaction (  -- [std] ledger append-only
-  voucher_id uuid NOT NULL REFERENCES voucher(id),
-  delta_minor bigint NOT NULL, payment_id uuid REFERENCES payment(id), note text
-);
+> ⏸️ **BUONI IN SOSPESO (2026-11-03)** — da riprendere se il salone li vorrà. Domande già pronte: importo o servizio;
+> uso in più volte (saldo); scadenza; acquisto anche online (Stripe); pacchetti (es. 5 pieghe al prezzo di 4).
+> Servirà anche il metodo `VOUCHER` su `payment`. Riferimento originale (non approvato):
+>
+> ```sql
+> -- [std] Buono regalo / credito prepagato (Fase 3)
+> CREATE TABLE voucher (
+>   code text NOT NULL, client_id uuid REFERENCES client(id),
+>   initial_minor bigint NOT NULL, balance_minor bigint NOT NULL CHECK (balance_minor >= 0),
+>   expires_at timestamptz, issued_sale_item_id uuid REFERENCES sale_item(id),
+>   status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','EXHAUSTED','EXPIRED','VOIDED')),
+>   UNIQUE (business_id, code)
+> );
+> CREATE TABLE voucher_transaction (  -- [std] ledger append-only
+>   voucher_id uuid NOT NULL REFERENCES voucher(id),
+>   delta_minor bigint NOT NULL, payment_id uuid REFERENCES payment(id), note text
+> );
+> ```
 
+```sql
 -- [std]
 CREATE TABLE notification_template (
   type text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','CANCELLATION','RESCHEDULE','REVIEW_REQUEST','MARKETING')),
