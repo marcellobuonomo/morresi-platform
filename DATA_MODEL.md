@@ -162,7 +162,10 @@ CREATE TABLE salon_settings (
   deposit_percent_bp         int NOT NULL DEFAULT 1000, -- 10%; rimborsato se disdetta entro cancellation_window_hours
   -- Notifiche (2026-11-03)
   reminder_hours_before      int NOT NULL DEFAULT 24,
-  notification_email         text                       -- avvisi al salone (NULL = email)
+  notification_email         text,                      -- avvisi al salone (NULL = email)
+  -- Recensioni Google (2026-11-03)
+  google_review_url          text,                      -- link per lasciare una recensione
+  google_place_id            text                       -- per leggere voto medio e recensioni (Places API)
 );
 
 -- ❌ business_member eliminata (single-tenant): il ruolo è su app_user.
@@ -582,20 +585,19 @@ WhatsApp; campagne solo via email e con consenso email. Modelli WhatsApp (en/it)
 
 #### Recensioni
 
-> 🟡 **IN DISCUSSIONE (2026-11-03)** — proposta sotto, non ancora approvata.
->
-> Risposte dell'utente: recensioni sia su Google sia dirette nel gestionale; anche sul singolo collaboratore; pubblicate
+> Decisioni (2026-11-03): recensioni sia su Google sia dirette nel gestionale; anche sul singolo collaboratore; pubblicate
 > sulla pagina di prenotazione, l'admin decide quali; nessun messaggio automatico: la reception la chiede a voce.
+> La recensione diretta la scrive solo il cliente registrato. Sul sito si mostrano anche le recensioni Google (scritte da
+> chiunque): lette da Google Places API, nessuna tabella nostra (Places restituisce voto medio, numero recensioni e al
+> massimo 5 recensioni; per averle tutte servirebbe Google Business Profile API, con accesso del proprietario).
 
 ```sql
--- PROPOSTA
--- Modifica a tabella già approvata:
---   salon_settings: google_review_url text   -- link alla pagina Google per lasciare la recensione
+-- ✅ Approvato (2026-11-03) — aggiunti anche salon_settings.google_review_url / google_place_id
 
--- [std] Recensione diretta: una per appuntamento completato
+-- [std] Recensione diretta: una per appuntamento completato, scritta dal cliente registrato dall'app/sito
 CREATE TABLE review (
   appointment_id  uuid NOT NULL UNIQUE REFERENCES appointment(id),
-  client_id       uuid REFERENCES client(id),
+  client_id       uuid NOT NULL REFERENCES client(id),
   rating          smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),   -- voto al salone
   comment         text,
   salon_reply     text,
@@ -610,18 +612,6 @@ CREATE TABLE review_staff_rating (
   PRIMARY KEY (review_id, staff_id)
 );
 ```
-
-> Riferimento originale (non approvato):
->
-> ```sql
-> -- [std] Una recensione per appuntamento completato
-> CREATE TABLE review (
->   appointment_id uuid NOT NULL UNIQUE REFERENCES appointment(id),
->   client_id uuid REFERENCES client(id),
->   rating smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
->   comment text, business_reply text, published boolean NOT NULL DEFAULT false
-> );
-> ```
 
 #### Piattaforma
 

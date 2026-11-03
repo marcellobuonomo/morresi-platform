@@ -30,11 +30,12 @@ Approvato (2026-11-03): catalogo servizi `service_category` / `service` / `servi
 `sale_sequence` / `sale` / `sale_item` / `payment` (acconto 10% via Stripe, rimborsi = `payment` REFUND),
 `product` (solo elenco prodotti; magazzino in sospeso finché il cliente non decide). Buoni in sospeso.
 Notifiche `marketing_campaign` (solo email) / `notification_log`: WhatsApp a ogni cliente con telefono, lingua da
-`client.nationality`, testi fissi en/it, avvisi email al salone.
+`client.nationality`, testi fissi en/it, avvisi email al salone. Recensioni `review` / `review_staff_rating`
+(solo clienti registrati) + recensioni Google lette da Places API.
 
-**Ripartire da: recensioni (DATA_MODEL.md §4.9).** Proposta già scritta lì; in attesa delle risposte dell'utente. Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
+**Ripartire da: tabelle di piattaforma (DATA_MODEL.md §4.9: `audit_log`, `outbox_event`, `idempotency_key`).** Valore del limite di disdetta da chiedere all'utente (è in `salon_settings`).
 
-Ordine successivo: recensioni → tabelle di piattaforma. In sospeso: magazzino (§4.8), buoni (§4.9).
+Ordine successivo: tabelle di piattaforma, poi rilettura §5-§10 (regole, API, piano) alla luce delle decisioni. In sospeso: magazzino (§4.8), buoni (§4.9).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
