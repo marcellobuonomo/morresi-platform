@@ -144,6 +144,7 @@ CREATE TABLE salon_settings (
   county                     text,
   phone                      text,
   email                      text,
+  instagram_url              text,                   -- link del profilo Instagram (V10, 2026-11-05)
   -- Localizzazione
   timezone                   text NOT NULL DEFAULT 'Europe/London',
   currency                   char(3) NOT NULL DEFAULT 'GBP',
@@ -215,6 +216,9 @@ CREATE TABLE staff (
   phone           text,
   job_title       text,
   calendar_color  char(7),                   -- colonna in agenda, es. #FF8800
+  photo_path      text,                      -- foto caricata dall'admin, percorso relativo alla cartella
+                                             -- upload del server (es. staff/<id>.jpg); NULL = avatar (V10)
+  bio             text,                      -- presentazione mostrata ai clienti (V10, 2026-11-05)
   bookable_online boolean NOT NULL DEFAULT true,  -- false = prenotabile solo dal salone
   sort_order      int NOT NULL DEFAULT 0,    -- ordine colonne in agenda
   deleted_at      timestamptz                -- ex collaboratore: fuori dall'agenda, storico intatto
@@ -380,9 +384,12 @@ telefono non unico (mamma e figlia); provenienza da elenco gestito dall'admin (s
 CREATE TABLE appointment (
   client_id            uuid REFERENCES client(id),     -- NULL = cliente anonimo: lo può creare solo ADMIN
   status               text NOT NULL DEFAULT 'BOOKED'
-    CHECK (status IN ('PENDING_PAYMENT','BOOKED','CONFIRMED','COMPLETED','CANCELLED','NO_SHOW')),
+    CHECK (status IN ('PENDING_PAYMENT','BOOKED','CONFIRMED','ARRIVED','COMPLETED','CANCELLED','NO_SHOW')),
                                                        -- PENDING_PAYMENT: in attesa di Stripe, tiene l'orario
                                                        -- pochi minuti dopo created_at, poi scade (CANCELLED)
+                                                       -- ARRIVED: il cliente è in salone (V10, 2026-11-05)
+  group_id             uuid,                           -- prenotazione di gruppo: stesso valore per gli
+                                                       -- appuntamenti prenotati insieme (V10, 2026-11-05)
   confirmed_at         timestamptz,                    -- quando è passato a CONFIRMED
   starts_at            timestamptz NOT NULL,           -- = min(items.starts_at), per l'agenda
   ends_at              timestamptz NOT NULL,           -- = max(items.ends_at)
@@ -392,11 +399,14 @@ CREATE TABLE appointment (
   cancelled_at         timestamptz,
   cancelled_by_user_id uuid REFERENCES app_user(id),
   late_cancellation    boolean NOT NULL DEFAULT false, -- disdetta dentro cancellation_window_hours
+  cancellation_reason  text CHECK (cancellation_reason IN ('CLIENT_UNAVAILABLE','MADE_BY_MISTAKE','DUPLICATE')),
+                                                       -- facoltativo; NULL = nessun motivo (V10, 2026-11-05)
   review_token_hash    text UNIQUE,                    -- link della recensione senza login (V9, 2026-11-05)
   CHECK (ends_at > starts_at)
 );
 CREATE INDEX ix_appt_calendar ON appointment (starts_at);
 CREATE INDEX ix_appt_client ON appointment (client_id, starts_at DESC);
+CREATE INDEX ix_appt_group ON appointment (group_id) WHERE group_id IS NOT NULL;
 
 -- [std] Riga-servizio: chi fa cosa e quando
 CREATE TABLE appointment_item (
@@ -427,6 +437,9 @@ ha un account), `variant_name`/`discount`/`tax_rate_bp` (sconti e IVA si gestisc
 
 Decisioni (2026-11-03): solo `CONFIRMED` in più; provenienza = basta sapere se online; appuntamento
 anonimo (senza cliente) ammesso ma solo da ADMIN; niente storico modifiche; niente motivo disdetta.
+Cambiato col titolare (2026-11-05, V10): stato `ARRIVED` (il cliente è in salone; `IN_PROGRESS` no), motivo di
+cancellazione facoltativo con i 3 motivi usati su Fresha, prenotazione di gruppo = un appuntamento per persona con lo
+stesso `group_id` (niente tabella gruppo). Import dello storico: "Cliente in sede" e "Iniziato" → `ARRIVED`.
 Conferma dall'app solo per clienti registrati (`client.user_id` valorizzato), dopo il login: niente `confirmation_token`.
 Il promemoria arriva anche ai non registrati con telefono in scheda (deciso con le notifiche); per loro la conferma la
 segna il salone. L'appuntamento anonimo è tipicamente un cliente arrivato in salone che non vuole
