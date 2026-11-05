@@ -1,0 +1,9 @@
+@if (errors.current(); as message) {
+  <div class="error" role="alert">
+    <span>{{ message }}</span>
+    <button type="button" aria-label="Chiudi" (click)="errors.clear()">×</button>
+  </div>
+}
+<main>
+  <router-outlet />
+</main>

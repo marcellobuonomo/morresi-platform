@@ -79,6 +79,22 @@ cd backend
 
 Nel log cercare `Successfully applied N migrations` (o `Schema "public" is up to date`).
 La connessione si può cambiare con le variabili `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`.
+Contratto delle API: http://localhost:8080/swagger-ui.html (JSON in `/v3/api-docs`).
+
+## Avviare il frontend (Angular)
+
+Serve Node.js (testato con Node 26). Con il backend acceso:
+
+```powershell
+cd frontend
+npm install        # solo la prima volta o dopo modifiche a package.json
+npm start          # http://localhost:4200, /api passa dal proxy al backend (proxy.conf.json)
+```
+
+- Agenda: http://localhost:4200/admin/agenda (giorno nell'URL, es. `?date=2026-10-31`).
+- Dopo ogni modifica alle API, con il backend acceso: `npm run api` rigenera il client in `src/app/core/api`
+  (file generati, da non modificare a mano).
+- Test: `npx ng test --watch=false`.
 
 ## Controlli rapidi con psql
 

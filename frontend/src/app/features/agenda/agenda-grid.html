@@ -1,0 +1,55 @@
+<div class="grid" #scroller>
+  <div class="head" [style.--cols]="columns().length">
+    <div class="corner"></div>
+    @for (col of columns(); track col.staff.id) {
+      <div class="staff">
+        <span class="avatar" [style.background]="col.avatarBg" [style.color]="col.avatarFg">{{ col.initials }}</span>
+        <span class="name">{{ col.staff.fullName }}</span>
+      </div>
+    }
+  </div>
+
+  <div class="body" [style.--cols]="columns().length" [style.height.px]="dayHeight">
+    <div class="gutter">
+      @for (h of hours; track h) {
+        <span class="hour" [style.top.px]="h * hourPx">{{ hourLabel(h) }}</span>
+      }
+      @if (isToday()) {
+        <span class="now-pill" [style.top.px]="nowTop()">{{ nowLabel() }}</span>
+      }
+    </div>
+
+    @for (col of columns(); track col.staff.id) {
+      <div class="column">
+        @for (off of col.offShift; track off.top) {
+          <div class="off-shift" [style.top.px]="off.top" [style.height.px]="off.height"></div>
+        }
+        @for (block of col.blocks; track block.item.itemId) {
+          <div
+            class="appt"
+            [class]="'appt status-' + block.item.status"
+            [style.top.px]="block.top"
+            [style.height.px]="block.height"
+            [style.left.%]="block.left"
+            [style.width.%]="block.width"
+            [title]="statusLabel(block.item.status) + ' · ' + price(block.item.priceMinor)"
+          >
+            <div class="line">
+              <span class="time">{{ timeRange(block.item.start, block.item.end) }}</span>
+              <strong>{{ block.item.clientName ?? 'Senza appuntamento' }}</strong>
+            </div>
+            <div class="service">{{ block.item.serviceName }}</div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (isToday()) {
+      <div class="now-line" [style.top.px]="nowTop()"></div>
+    }
+  </div>
+
+  @if (columns().length === 0) {
+    <p class="empty">Nessun collaboratore di turno in questo giorno.</p>
+  }
+</div>

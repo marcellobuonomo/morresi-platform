@@ -71,7 +71,12 @@ quei file, poi l'ordine di import di OP_DB.md.
 cancellazione, prenotazione di gruppo (`group_id`), `discount_code` (solo online, solo %), lista d'attesa
 (`waitlist_entry`, prenota da solo il primo, senza acconto, avviso WhatsApp + email), foto/bio dei collaboratori,
 `instagram_url`. Storico Fresha reimportato (ARRIVED e motivi mappati; servizi al 20%, storico vendite a IVA 0).
-**Ripartire da:** B-01 (scelta frontend, con Andrea) e B-02 (autenticazione, compresa l'utenza di Sara).
+**B-01 deciso (2026-11-05):** Angular 22 in `frontend/`, un'unica app, calendario fatto da noi a imitazione di Fresha
+(misure e colori presi dal calendario di Fresha in sola lettura). **Primo pezzo: agenda giorno in sola lettura**
+(`GET /api/v1/agenda?date=`, package `agenda`; pagina `/admin/agenda`), con i dati veri del DB locale. API ancora
+aperta: va protetta con B-02. Avvio frontend e rigenerazione del client OpenAPI: OP_DB.md.
+**Ripartire da:** feedback sull'agenda; poi B-02 (autenticazione, compresa l'utenza di Sara) e A-04 (azioni
+sull'agenda: nuovo appuntamento, cambi di stato, trascinamento).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

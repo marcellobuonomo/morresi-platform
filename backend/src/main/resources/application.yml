@@ -22,6 +22,9 @@ spring:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
 
+springdoc:
+  default-produces-media-type: application/json   # client Angular generati da /v3/api-docs (npm run api)
+
 management:
   endpoints:
     web:

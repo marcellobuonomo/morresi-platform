@@ -1,0 +1,15 @@
+<header class="toolbar">
+  <button type="button" class="btn" (click)="today()">Oggi</button>
+  <div class="date-nav">
+    <button type="button" class="btn icon" aria-label="Giorno precedente" (click)="shift(-1)">‹</button>
+    <span class="date-label">{{ dayLabel() }}</span>
+    <button type="button" class="btn icon" aria-label="Giorno successivo" (click)="shift(1)">›</button>
+  </div>
+  <span class="view">Giorno</span>
+</header>
+
+@if (agendaDay.value(); as data) {
+  <app-agenda-grid [day]="data" [isToday]="isToday()" />
+} @else if (agendaDay.isLoading() && !agendaDay.error()) {
+  <p class="state">Caricamento…</p>
+}
