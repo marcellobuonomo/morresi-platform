@@ -1,4 +1,4 @@
-<div class="grid" #scroller (mouseleave)="hoverSlot.set(null)">
+<div class="grid" #scroller (mouseleave)="hoverSlot.set(null)" (scroll)="hoverCard.set(null)">
   <div class="head" [style.--cols]="columns().length">
     <div class="corner">
       @if (singleStaff(); as staff) {
@@ -97,7 +97,7 @@
             [style.left]="'calc(' + p.left + '% + 1px)'"
             [style.width]="'calc(' + p.width + '% - 2px)'"
             [style.background]="statusColor(p.item.status)"
-            (mouseenter)="hoverCard.set({ key: l.col.key, block: p })"
+            (mouseenter)="showCard($event, p.item, l.col, $first)"
             (mouseleave)="hoverCard.set(null)"
             (click)="appointmentOpen.emit(p.item.appointmentId)"
           >
@@ -123,55 +123,13 @@
           </div>
         }
 
-        @if (hoverCard(); as card) {
-          @if (card.key === l.col.key) {
-            <div class="hover-card" [class.flip]="$last && !$first" [style.top.px]="card.block.top">
-              <div
-                class="hc-head"
-                [style.background]="statusHead(card.block.item.status).background"
-                [style.color]="statusHead(card.block.item.status).color"
-              >
-                <span>{{ timeRange(card.block.item) }}</span>
-                <span class="hc-status">
-                  {{ statusLabel(card.block.item.status) }}
-                  @if (card.block.item.status === 'NO_SHOW') {
-                    <app-icon name="eye-off" [size]="16" />
-                  }
-                  @if (card.block.item.status === 'COMPLETED' && card.block.item.paid) {
-                    <app-icon name="tag-filled" [size]="16" />
-                  }
-                </span>
-              </div>
-              <div class="hc-client">
-                <span class="hc-avatar">{{ (card.block.item.clientName ?? 'S')[0] }}</span>
-                <div>
-                  <strong>{{ card.block.item.clientName ?? 'Senza appuntamento' }}</strong>
-                  @if (card.block.item.clientPhone) {
-                    <p>{{ formatPhone(card.block.item.clientPhone) }}</p>
-                  }
-                  @if (card.block.item.clientNoShows > 0) {
-                    <span class="hc-badge">{{ noShowLabel(card.block.item.clientNoShows) }}</span>
-                  }
-                </div>
-              </div>
-              <div class="hc-service">
-                <div>
-                  <strong>{{ card.block.item.serviceName }}</strong>
-                  <p>{{ l.col.staff.fullName }} · {{ duration(card.block.item) }} min</p>
-                </div>
-                <span>{{ formatPrice(card.block.item.priceMinor) }}</span>
-              </div>
-            </div>
-          }
-        }
-
         @if (slotMenu(); as slot) {
           @if (slot.key === l.col.key) {
             <div class="slot-selected" [style.top.px]="slotTop(slot.minute)" [style.height.px]="quarterPx()">
               {{ minutesToTime(slot.minute) }}
             </div>
             <div class="backdrop" (click)="slotMenu.set(null); $event.stopPropagation()"></div>
-            <div class="menu slot-menu" [class.flip]="!$first" [style.top.px]="slotTop(slot.minute)" role="menu">
+            <div class="menu slot-menu" [class.flip]="!$first" [style.top.px]="slotTop(slot.minute) + quarterPx() / 2" role="menu">
               <div class="menu-head">
                 <strong>{{ minutesToTime(slot.minute) }}</strong>
                 <button type="button" class="close" aria-label="Chiudi" (click)="slotMenu.set(null)">
@@ -197,6 +155,47 @@
       </div>
     }
   </div>
+
+  @if (hoverCard(); as card) {
+    <div
+      class="hover-card"
+      [class.left]="card.side === 'left'"
+      [style.left.px]="card.x"
+      [style.top.px]="card.y"
+    >
+      <div class="hc-head" [style.background]="statusHead(card.item.status).background" [style.color]="statusHead(card.item.status).color">
+        <span>{{ timeRange(card.item) }}</span>
+        <span class="hc-status">
+          {{ statusLabel(card.item.status) }}
+          @if (card.item.status === 'NO_SHOW') {
+            <app-icon name="eye-off" [size]="16" />
+          }
+          @if (card.item.status === 'COMPLETED' && card.item.paid) {
+            <app-icon name="tag-filled" [size]="16" />
+          }
+        </span>
+      </div>
+      <div class="hc-client">
+        <span class="hc-avatar">{{ (card.item.clientName ?? 'S')[0] }}</span>
+        <div>
+          <strong>{{ card.item.clientName ?? 'Senza appuntamento' }}</strong>
+          @if (card.item.clientPhone) {
+            <p>{{ formatPhone(card.item.clientPhone) }}</p>
+          }
+          @if (card.item.clientNoShows > 0) {
+            <span class="hc-badge">{{ noShowLabel(card.item.clientNoShows) }}</span>
+          }
+        </div>
+      </div>
+      <div class="hc-service">
+        <div>
+          <strong>{{ card.item.serviceName }}</strong>
+          <p>{{ card.staffName }} · {{ duration(card.item) }} min</p>
+        </div>
+        <span>{{ formatPrice(card.item.priceMinor) }}</span>
+      </div>
+    </div>
+  }
 
   @if (columns().length === 0) {
     <p class="empty">Nessun membro del team selezionato.</p>

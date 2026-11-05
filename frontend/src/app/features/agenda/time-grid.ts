@@ -20,7 +20,6 @@ import {
   minuteOfDay,
   minutesToPx,
   offShiftRanges,
-  PlacedBlock,
   placeAppointments,
 } from './agenda-layout';
 import { avatarColors } from './avatar';
@@ -53,6 +52,20 @@ export interface SlotRequest {
   date: string;
   minute: number;
 }
+
+/** Scheda al passaggio del mouse, in coordinate dello schermo (position: fixed). */
+interface HoverCard {
+  item: Appointment;
+  staffName: string;
+  x: number;
+  y: number;
+  side: 'left' | 'right';
+}
+
+const CARD_WIDTH = 374;
+const CARD_GAP = 8;
+/** Metà dell'altezza tipica della scheda: serve a non farla uscire dallo schermo in alto o in basso. */
+const CARD_HALF_HEIGHT = 110;
 
 interface Slot {
   key: string;
@@ -115,7 +128,7 @@ export class TimeGrid {
   // Stato delle interazioni (solo visivo)
   protected readonly hoverSlot = signal<Slot | null>(null);
   protected readonly slotMenu = signal<Slot | null>(null);
-  protected readonly hoverCard = signal<{ key: string; block: PlacedBlock<Appointment> } | null>(null);
+  protected readonly hoverCard = signal<HoverCard | null>(null);
   protected readonly staffMenu = signal<string | null>(null);
 
   /** Ora attuale nel fuso del salone, aggiornata ogni minuto. */
@@ -150,6 +163,24 @@ export class TimeGrid {
       return;
     }
     this.slotMenu.set({ key, minute: this.minuteAt(event) });
+  }
+
+  /**
+   * Come su Fresha: la scheda si apre a sinistra del blocco (a destra solo nella prima colonna o se a sinistra
+   * non c'è spazio), centrata in verticale sul blocco e sempre dentro lo schermo.
+   */
+  protected showCard(event: MouseEvent, item: Appointment, col: GridColumn, firstColumn: boolean): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const fitsLeft = rect.left - CARD_GAP - CARD_WIDTH >= 0;
+    const side = firstColumn || !fitsLeft ? 'right' : 'left';
+    const center = rect.top + rect.height / 2;
+    this.hoverCard.set({
+      item,
+      staffName: col.staff.fullName,
+      x: side === 'left' ? rect.left - CARD_GAP : rect.right + CARD_GAP,
+      y: Math.min(Math.max(center, CARD_HALF_HEIGHT + 8), window.innerHeight - CARD_HALF_HEIGHT - 8),
+      side,
+    });
   }
 
   protected addAppointment(col: GridColumn, minute: number): void {

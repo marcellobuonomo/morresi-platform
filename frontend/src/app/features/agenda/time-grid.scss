@@ -268,11 +268,12 @@ $purple: #6950f3;
   }
 }
 
+// Posizione calcolata in showCard (fixed, coordinate dello schermo)
 .hover-card {
-  position: absolute;
-  left: calc(100% + 8px);
-  z-index: 8;
+  position: fixed;
+  z-index: 30;
   width: 374px;
+  transform: translateY(-50%);
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
@@ -280,9 +281,8 @@ $purple: #6950f3;
   pointer-events: none;
   font-size: 13px;
 
-  &.flip {
-    left: auto;
-    right: calc(100% + 8px);
+  &.left {
+    transform: translate(-100%, -50%);
   }
 
   p {
@@ -395,9 +395,10 @@ $purple: #6950f3;
   transform: translateX(-50%);
 }
 
+// Centrato sullo spazio cliccato, a sinistra della colonna (a destra nella prima), come su Fresha
 .slot-menu {
   right: calc(100% + 8px);
-  transform: translateY(-40px);
+  transform: translateY(-50%);
 
   &:not(.flip) {
     right: auto;
