@@ -62,6 +62,9 @@ collaboratori) e 6.161 clienti con `scripts/fresha_*_to_sql.py` (dati in `data/`
 Importati anche catalogo (35 servizi), 40.171 appuntamenti e 32.263 vendite (98,7% dell'incasso Fresha) fino al
 2026-10-31 con `scripts/fresha_history_to_sql.py`; ordine degli import in OP_DB.md. Collaboratori: Anna (Cresci) e Anna
 Luisa (De Almeida) sono persone diverse; Fatima e Samanda non lavorano più al salone (cessate).
+Importati anche orari di apertura e dati della sede (`data/import_salone.sql`) e 615 turni set–dic 2026 con settimana
+tipo (`scripts/fresha_shifts_to_sql.py`). Saltati i turni di "Angelo Mastrogiovanni" e "MorresiHR Human Resource"
+(nessun appuntamento: account non collaboratori?). Anna (Cresci) e Anna Luisa non hanno turni su Fresha.
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

@@ -152,6 +152,10 @@ vendite e pagamenti. Ordine completo di un import da zero:
 1. `import_recensioni.sql` (crea anche i collaboratori citati)
 2. `import_clienti.sql` (cancella anche lo storico, che punta ai clienti)
 3. `import_storico.sql`
+4. `import_turni.sql`: da `python scripts/fresha_shifts_to_sql.py data/fresha_scheduled-shifts.csv data/import_turni.sql`
+   (report "Turni programmati" > CSV); turni e settimana tipo dei collaboratori già presenti
+5. `import_salone.sql`: indirizzo, telefono, email e orari di apertura, scritto a mano in `data/` dalle pagine di Fresha
+   (Impostazioni > Configurazione dell'attività > Sedi): dati del salone, quindi fuori dal codice
 
 ```powershell
 $env:PGPASSWORD = "morresi"
