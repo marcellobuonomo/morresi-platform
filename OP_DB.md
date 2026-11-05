@@ -136,3 +136,24 @@ python scripts/fresha_clients_to_sql.py data/clienti_fresha.csv data/import_clie
 Poi si esegue `data/import_clienti.sql` con DBeaver o psql. Cancella tutti i clienti e li reinserisce: in locale si può
 rilanciare finché nessun appuntamento/vendita/recensione punta ai clienti; in produzione si esegue una volta sola, a DB
 vuoto, con un export fresco. Regole di unione, consensi, compleanni e lingua: in testa allo script.
+
+## Import storico da Fresha (catalogo, appuntamenti, vendite, pagamenti)
+
+Export da Fresha in `data/` (nomi dei file e percorsi in testa a `scripts/fresha_history_to_sql.py`), periodo dei
+report fino al 2026-10-31.
+
+```powershell
+python scripts/fresha_history_to_sql.py data data/import_storico.sql
+```
+
+`data/import_storico.sql` (circa 20 MB: meglio psql che DBeaver) cancella e reinserisce catalogo servizi, appuntamenti,
+vendite e pagamenti. Ordine completo di un import da zero:
+
+1. `import_recensioni.sql` (crea anche i collaboratori citati)
+2. `import_clienti.sql` (cancella anche lo storico, che punta ai clienti)
+3. `import_storico.sql`
+
+```powershell
+$env:PGPASSWORD = "morresi"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U morresi -h localhost -d morresi -v ON_ERROR_STOP=1 -q -f data/import_storico.sql
+```

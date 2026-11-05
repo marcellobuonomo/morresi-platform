@@ -5,9 +5,9 @@ Uso:
 
 Il CSV è l'export di Fresha "Clienti > Elenco dei clienti > Opzioni > Esporta > CSV".
 
-L'SQL si esegue con DBeaver o psql ed è pensato per un database senza clienti: prima cancella tutti i clienti e poi li
-reinserisce. In locale si può rilanciare finché nessun appuntamento, vendita o recensione punta ai clienti (altrimenti
-la cancellazione fallisce e non cambia nulla); in produzione si esegue una sola volta, con un export fresco.
+L'SQL si esegue con DBeaver o psql ed è pensato per un database senza clienti: cancella lo storico importato
+(appuntamenti, vendite, pagamenti) e tutti i clienti, poi reinserisce i clienti; dopo va rilanciato import_storico.sql.
+In produzione si esegue una sola volta, con un export fresco.
 
 Regole (decise col titolare il 2026-11-05):
 - schede con stesso telefono e stesso nome = un solo cliente, i campi vuoti si completano a vicenda;
@@ -104,6 +104,9 @@ def main(csv_path, sql_path):
            "SET client_encoding = 'UTF8';",
            "BEGIN;",
            "",
+           "-- lo storico importato punta ai clienti: si cancella anche quello (poi rilanciare import_storico.sql)",
+           "DELETE FROM payment; DELETE FROM sale_item; DELETE FROM sale;",
+           "DELETE FROM appointment_item; DELETE FROM appointment;",
            "DELETE FROM client;",
            ""]
     for i, s in enumerate(sources):

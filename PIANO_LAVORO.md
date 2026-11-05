@@ -118,7 +118,7 @@ decisioni ancora aperte la spostano in avanti.
 | B-02 | Login email/password e Google, conferma email, reset password, ruoli | Marcello | S1–S2 | B-01 |
 | B-03 | Orari prenotabili: turni ∩ apertura − blocchi − appuntamenti, passo 15 min; salvataggio con controllo sovrapposizioni | Marcello | S5–S6 | A-01, A-02, A-03 |
 | B-04 | Coda `notification_log`, invio programmato, WhatsApp (Twilio) ed email, testi en/it | Andrea | S9–S10 | B-03 |
-| B-05 | Export da Fresha e import di clienti, storico e recensioni (con voto ai collaboratori) | Marcello | S12 | A-05, A-06 |
+| B-05 | Export da Fresha e import di clienti, storico e recensioni (con voto ai collaboratori). **Script fatti il 2026-11-05** (OP_DB.md): alla messa online solo export fresco e import | Marcello | S12 | A-05, A-06 |
 | B-06 | Collaudo e messa online | insieme | S13 | tutto |
 | C-01 | Pagina del salone: foto, indirizzo, orari, link social | Andrea | S1–S2 | B-01 |
 | C-02 | Registrazione cliente, completamento profilo, verifica telefono | Andrea | S2–S3 | B-02 |

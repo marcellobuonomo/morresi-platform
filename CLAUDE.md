@@ -59,7 +59,9 @@ In sospeso: magazzino (§4.8), buoni (§4.9); su Fresha non sono usati.
 schema DB e architettura. Decisi i messaggi (conferma email, promemoria email + WhatsApp, recensione WhatsApp con link
 alla nostra piattaforma, compleanno email) → V9. Importati in locale da Fresha 1.821 recensioni (con voto ai
 collaboratori) e 6.161 clienti con `scripts/fresha_*_to_sql.py` (dati in `data/`, fuori da git; istruzioni in OP_DB.md).
-Da chiedere al titolare: Anna e "Anna Luisa" sono la stessa persona? Fatima, Samanda, Anna lavorano ancora al salone?
+Importati anche catalogo (35 servizi), 40.171 appuntamenti e 32.263 vendite (98,7% dell'incasso Fresha) fino al
+2026-10-31 con `scripts/fresha_history_to_sql.py`; ordine degli import in OP_DB.md. Collaboratori: Anna (Cresci) e Anna
+Luisa (De Almeida) sono persone diverse; Fatima e Samanda non lavorano più al salone (cessate).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
