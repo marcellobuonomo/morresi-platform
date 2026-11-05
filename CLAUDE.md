@@ -47,13 +47,6 @@ Operazioni sul DB locale (accesso, reset, Flyway, DBeaver, JAVA_HOME): [OP_DB.md
 area cliente ad Andrea, area admin a Marcello; task con ID (B-/C-/A-) e timeline di 13 settimane dal 2026-11-09.
 Il documento elenca anche le funzioni usate su Fresha che mancano al modello (messaggi automatici in più, lista d'attesa,
 campagne SMS, codici sconto, ...) e le domande per il titolare: decisioni da prendere prima di toccare il DB.
-**Miro (2026-11-05):** Miro è la piattaforma di gestione del progetto; l'utente sta aggiungendo il server MCP di Miro.
-**Ripartire da:** verificare che i tool Miro siano disponibili, chiedere il link della board e se usare una board
-unica divisa in sezioni o board separate; poi creare su Miro, in quest'ordine: (1) i task di PIANO_LAVORO.md §4 come
-card (ID, chi, settimane, dipendenze) in colonne Da fare / In corso / Fatto, più le domande al titolare (§5);
-(2) lo schema del DB da DATA_MODEL.md §4, tabelle raggruppate per area con le relazioni; (3) l'architettura
-(frontend cliente e admin, backend Spring Boot, Postgres, Stripe, Twilio/WhatsApp, email, Google login e Places).
-Poi: risposte del titolare alle domande di PIANO_LAVORO.md §5, B-01 (scelta frontend) e B-02 (autenticazione). Su Fresha la disdetta è a 48h (da confermare; in `salon_settings` ora 24h).
 In sospeso: magazzino (§4.8), buoni (§4.9); su Fresha non sono usati.
 **2026-11-05 (pomeriggio):** board Miro https://miro.com/app/board/uXjVESMMmrI=/ con kanban dei task, domande al titolare,
 schema DB e architettura. Decisi i messaggi (conferma email, promemoria email + WhatsApp, recensione WhatsApp con link
@@ -67,6 +60,12 @@ tipo (`scripts/fresha_shifts_to_sql.py`). Saltati i turni di "Angelo Mastrogiova
 (non sono collaboratori in agenda). Nome del salone: "Morresi Hair Stylist". Sara è receptionist/admin: utente
 dell'app (B-02), non collaboratrice in agenda. Cessati: Anna Cresci, Anna Luisa De Almeida, Fatima, Samanda
 (in `data/import_salone.sql`). In attività: Salvatore, Mattia, Roberta, Maria, Franco, Giuseppe.
+Prenotabilità: contano i turni, non gli orari di apertura (anche lunedì/domenica se c'è il turno; DATA_MODEL.md §4.3).
+I file in `data/` (export Fresha e SQL generati) sono solo sul PC di Marcello: per avere i dati in locale servono
+quei file, poi l'ordine di import di OP_DB.md.
+**Ripartire da:** domande ancora aperte al titolare (tabella su Miro e PIANO_LAVORO.md §5: regole di prenotazione
+48 h / 24 h / 5 mesi, campagne SMS, lista d'attesa e codici sconto, motivo di cancellazione e stati Arrivato/Iniziato,
+registrazione IVA); poi B-01 (scelta frontend) e B-02 (autenticazione, compresa l'utenza di Sara).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
