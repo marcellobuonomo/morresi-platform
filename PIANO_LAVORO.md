@@ -91,6 +91,10 @@ titolare prima di scrivere codice.
    le immagini.
 8. **Importazione dati da Fresha.** Migliaia di clienti e lo storico di appuntamenti e vendite, utile per le
    statistiche dal primo giorno. Impatto: un lavoro a sé (export Fresha → import); provenienza "Importata" già prevista.
+   **Recensioni (verificato 2026-11-05):** 1.823, tutte Fresha (Google non collegato), voto medio 5,0. Ognuna ha nome del
+   cliente, data, voto, testo, servizio e collaboratore ("Haircut/blow dry con Roberta"): il voto vale anche per il
+   collaboratore. Fresha non ha un export delle recensioni (né in "Reputazione online" né tra i 64 report; il Data
+   Connector costa 190 £/mese): vanno lette dalla pagina "Reputazione online" del partner con uno script.
 
 ### Valori da impostare (nessuna modifica al DB)
 
