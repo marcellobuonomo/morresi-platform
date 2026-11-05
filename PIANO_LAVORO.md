@@ -43,7 +43,7 @@ approvazione delle recensioni). L'area admin da sola è più grande dell'area cl
 
 | Sezione Fresha | Usata dal salone | Nel nostro modello | Area |
 |---|---|---|---|
-| Calendario, stati appuntamento | sì, anche Arrivato e Iniziato | sì, senza Arrivato/Iniziato | admin |
+| Calendario, stati appuntamento | sì, anche Arrivato e Iniziato | sì, con Arrivato, senza Iniziato (2026-11-05) | admin |
 | Motivi di cancellazione | sì, 3 motivi | no, tolti il 2026-11-03 | admin |
 | Fasce bloccate (pranzo, formazione, riunione) | sì | sì, `staff_time_block` | admin |
 | Cassa, vendite, pagamenti | sì, contanti e carta | sì, `sale` / `payment` | admin |
@@ -78,14 +78,19 @@ titolare prima di scrivere codice.
    compleanno via email; nessun altro messaggio. Migrazione V9.
 2. **Lista d'attesa.** Attiva, con prenotazione automatica quando si libera un posto (primo in lista). Impatto: nuova
    tabella (cliente, servizi, collaboratore, giorni e fasce desiderati, stato) e due messaggi automatici.
+   **Deciso (2026-11-05):** sì, come su Fresha: si prenota da solo il primo in lista che va bene e viene avvisato.
 3. **Campagne via SMS.** Il salone fa campagne SMS; noi abbiamo previsto solo email. Impatto: `channel` SMS su
    campagne e log; consenso SMS già presente su `client`.
+   **Deciso (2026-11-05):** no, campagne solo email. Nessuna modifica.
 4. **Codici sconto online.** Offerta "Feb Sale" −20% con codice promozionale. Impatto: tabella codici (percentuale o
    importo, validità, servizi) e campo sull'appuntamento o sulla vendita.
+   **Deciso (2026-11-05):** sì, solo nella prenotazione online; in cassa lo sconto resta manuale (`discount_minor`).
 5. **Motivo di cancellazione e stati Arrivato / Iniziato.** Il salone li usa; li avevamo tolti il 2026-11-03.
    Impatto: un campo sull'appuntamento e due valori di stato. Da riconfermare col titolare.
+   **Deciso (2026-11-05):** motivo di cancellazione sì, stato Arrivato sì, stato Iniziato no.
 6. **Prenotazione di gruppo.** Attiva su Fresha (es. mamma e figlia insieme). Impatto: più clienti per appuntamento
    oppure appuntamenti collegati. Da chiedere se viene usata davvero.
+   **Deciso (2026-11-05):** sì, come appuntamenti collegati (uno per persona, stesso gruppo).
 7. **Vetrina online.** Foto e bio del collaboratore, foto del servizio, servizi in evidenza, testo "informazioni
    importanti", link Instagram e sito. Impatto: pochi campi su `staff`, `service`, `salon_settings`, più dove salvare
    le immagini.
@@ -100,12 +105,14 @@ titolare prima di scrivere codice.
 
 | Impostazione | Su Fresha | Default nostro |
 |---|---|---|
-| `cancellation_window_hours` | 48 h | 24 h (risponde alla domanda aperta sul limite di disdetta) |
-| `min_notice_minutes` | 24 h | 60 min |
-| `max_advance_days` | 5 mesi | 90 giorni |
+| `cancellation_window_hours` | 48 h | 24 h → **48 h** (deciso 2026-11-05) |
+| `min_notice_minutes` | 24 h | 60 min → **1440** (deciso 2026-11-05) |
+| `max_advance_days` | 5 mesi | 90 giorni → **150** (deciso 2026-11-05) |
 | `slot_interval_minutes` | 15 min | 15 min |
 | `reminder_hours_before` | 24 h | 24 h |
-| IVA servizi e prodotti | nessuna aliquota | 20% (chiedere al commercialista se il salone è registrato IVA) |
+| IVA servizi e prodotti | nessuna aliquota | 20%: il salone è registrato IVA (deciso 2026-11-05); manca il numero IVA |
+
+I valori decisi sono in `data/import_salone.sql` (dati del salone, fuori da git) e applicati al DB locale.
 
 ## 4. Task e timeline
 
@@ -128,7 +135,7 @@ decisioni ancora aperte la spostano in avanti.
 | C-06 | Pagina Stripe, webhook, stato in attesa di pagamento con scadenza, rimborso dell'acconto | Andrea | S8–S9 | C-04, A-06 |
 | C-07 | Campagne email ai clienti con consenso, filtro per etichetta (admin) | Andrea | S10 | B-04 |
 | C-08 | Pagina recensione dal link WhatsApp (senza login, collaboratori già indicati), invito a Google, approvazione e risposta dall'admin, recensioni Google | Andrea | S11 | C-05 |
-| C-09 | Lista d'attesa con prenotazione automatica (solo se decisa) | Andrea | S12 | decisione del titolare |
+| C-09 | Lista d'attesa con prenotazione automatica | Andrea | S12 | C-04 |
 | A-01 | Dati del salone, regole di prenotazione, orari settimanali, chiusure straordinarie | Marcello | S2 | B-02 |
 | A-02 | Categorie, servizi, chi fa cosa con prezzo e durata per collaboratore | Marcello | S2–S3 | B-02 |
 | A-03 | Collaboratori, turni, pause e ferie, settimana tipo, copia settimana | Marcello | S3–S4 | A-01 |
@@ -141,13 +148,13 @@ decisioni ancora aperte la spostano in avanti.
 
 | Domanda | Serve per |
 |---|---|
-| Disdetta a 48 h, prenotazione da 24 h a 5 mesi: restano come su Fresha? | A-01 |
+| ~~Disdetta a 48 h, prenotazione da 24 h a 5 mesi: restano come su Fresha?~~ Sì (2026-11-05) | A-01 |
 | ~~Messaggio automatico dopo la visita con link alla recensione: lo vuole?~~ Sì, via WhatsApp (2026-11-05) | B-04, C-08 |
 | ~~Altri messaggi automatici: spostato, annullato, no-show, invito a riprenotare?~~ No (2026-11-05) | B-04 |
-| Campagne anche via SMS o solo email? | C-07 |
-| Lista d'attesa, codici sconto, prenotazione di gruppo: li usa davvero? | C-04, C-09 |
-| Motivo di cancellazione e stati Arrivato / Iniziato: servono? | A-04 |
-| Il salone è registrato IVA nel Regno Unito? | A-02, A-06 |
+| ~~Campagne anche via SMS o solo email?~~ Solo email (2026-11-05) | C-07 |
+| ~~Lista d'attesa, codici sconto, prenotazione di gruppo: li usa davvero?~~ Sì, tutti e tre (2026-11-05) | C-04, C-09 |
+| ~~Motivo di cancellazione e stati Arrivato / Iniziato: servono?~~ Motivo e Arrivato sì, Iniziato no (2026-11-05) | A-04 |
+| ~~Il salone è registrato IVA nel Regno Unito?~~ Sì, 20% (2026-11-05); manca il numero IVA | A-02, A-06 |
 | ~~Vuole portare clienti e storico da Fresha? Fino a che anno?~~ Sì, tutto, fino al 2026-10-31 | B-05 |
 
 Versione condivisibile (con timeline grafica): https://claude.ai/artifact/LkXiyLJLDgZGfqk2VM4v7X

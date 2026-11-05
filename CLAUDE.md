@@ -63,9 +63,12 @@ dell'app (B-02), non collaboratrice in agenda. Cessati: Anna Cresci, Anna Luisa 
 Prenotabilità: contano i turni, non gli orari di apertura (anche lunedì/domenica se c'è il turno; DATA_MODEL.md §4.3).
 I file in `data/` (export Fresha e SQL generati) sono solo sul PC di Marcello: per avere i dati in locale servono
 quei file, poi l'ordine di import di OP_DB.md.
-**Ripartire da:** domande ancora aperte al titolare (tabella su Miro e PIANO_LAVORO.md §5: regole di prenotazione
-48 h / 24 h / 5 mesi, campagne SMS, lista d'attesa e codici sconto, motivo di cancellazione e stati Arrivato/Iniziato,
-registrazione IVA); poi B-01 (scelta frontend) e B-02 (autenticazione, compresa l'utenza di Sara).
+**Domande al titolare chiuse (2026-11-05, PIANO_LAVORO.md §3 e §5):** regole come Fresha (24 h / 150 giorni / disdetta
+48 h, in `data/import_salone.sql`), campagne solo email, IVA 20% (manca il numero IVA). Da aggiungere al modello:
+lista d'attesa con prenotazione automatica del primo, codici sconto solo online, prenotazione di gruppo come
+appuntamenti collegati, motivo di cancellazione, stato Arrivato (Iniziato no).
+**Ripartire da:** proposta e approvazione (una tabella alla volta) di queste aggiunte in DATA_MODEL.md, poi migrazione
+V10; poi B-01 (scelta frontend) e B-02 (autenticazione, compresa l'utenza di Sara).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
