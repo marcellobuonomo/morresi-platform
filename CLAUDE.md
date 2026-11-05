@@ -82,7 +82,8 @@ da soli le scelte di dominio.
 - Non usare design pattern (Factory, Builder, Strategy, Visitor...) a meno che
   io non lo chieda o che il codice duplicato in 3+ punti lo giustifichi chiaramente.
 - Preferisci metodi semplici e classi concrete a gerarchie e generics elaborati.
-- Non aggiungere layer, moduli o package nuovi senza chiedermelo.
+- Oltre ai livelli descritti sotto (controller → service → repository), non aggiungere layer, moduli o package
+  nuovi senza chiedermelo.
 - Non aggiungere dipendenze nuove senza chiedermelo.
 - Segui lo stile e le convenzioni del codice già presente, anche se non è quello che sceglieresti.
 - Modifica solo ciò che serve per il task: niente refactoring "già che ci sono".
@@ -90,6 +91,79 @@ da soli le scelte di dominio.
 - Se il task richiede più di ~3 file nuovi, fermati e proponi prima il piano.
 
 ## Java
-- Usa le feature del linguaggio (record, stream semplici, Optional dove ha senso) ma senza eccessi.
+- Usa le feature del linguaggio (record, stream semplici) ma senza eccessi.
 - Evita reflection, AOP custom, annotation custom e generics complessi.
 - Preferisci la soluzione già offerta dallo stack in uso (es. Spring) a un'astrazione costruita a mano.
+
+## Backend (regole approvate 2026-11-05)
+
+### Architettura e design
+- Livelli chiari controller → service → repository; le dipendenze puntano sempre verso il dominio, mai al contrario.
+  Package per funzionalità (es. `com.morresi.platform.agenda`).
+- Controller sottili: solo validazione dell'input, mapping e delega. La logica di business sta nei service.
+- Mai esporre le entity JPA nelle API: DTO dedicati come record Java, con mapping manuale (es. metodo statico
+  `from(entity)`). MapStruct solo se il mapping diventa ripetitivo, chiedendo prima.
+- Iniezione via costruttore (campi `final`), mai `@Autowired` sui campi.
+- SOLID con buon senso: niente over-engineering né astrazioni "per il futuro".
+
+### Codice
+- Immutabilità dove possibile (record, `final`, collezioni immutabili con `List.of`).
+- `Optional` solo come tipo di ritorno, non per campi o parametri.
+- Mai `null` al posto di una collezione vuota.
+- Eccezioni di dominio specifiche; mai `catch (Exception)` generici né eccezioni ingoiate in silenzio. Gestione
+  centralizzata con `@RestControllerAdvice` e risposte `ProblemDetail` (RFC 7807).
+- Nomi espressivi, metodi brevi con una sola responsabilità.
+
+### Persistenza
+- Attenzione al problema N+1: `JOIN FETCH`, `@EntityGraph` o proiezioni.
+- `@Transactional` sui service, con scope minimo; `readOnly = true` per le letture.
+- Paginazione obbligatoria sulle liste potenzialmente grandi.
+- Schema solo con migrazioni Flyway versionate, mai modifiche manuali negli ambienti.
+- Niente `FetchType.EAGER` come default.
+
+### API REST
+- Versionamento `/api/v1/...`, verbi HTTP e status code corretti; PUT e DELETE idempotenti.
+- Validazione con Bean Validation (`@Valid`, `@NotNull`, ...).
+- Documentazione OpenAPI (springdoc): il contratto è la fonte di verità e da lì si generano i client Angular.
+
+### Sicurezza
+- Spring Security con **sessione lato server e cookie HttpOnly** (+ protezione CSRF); login Google via OIDC.
+  Niente JWT finché c'è un solo backend.
+- Autorizzazione a livello di metodo (`@PreAuthorize`), mai solo sul frontend.
+- Nessun segreto nel repository: variabili d'ambiente.
+- Protezione da OWASP Top 10 (injection, XSS, CSRF, mass assignment, ...).
+- Mai loggare dati sensibili (password, token, dati personali).
+
+### Qualità e operatività
+- Test: unit (JUnit 5 + Mockito) e integrazione (Testcontainers con Postgres vero).
+- Logging con SLF4J; un ID per ogni richiesta nei log (MDC).
+- Actuator per gli health check, Micrometer per le metriche. Niente tracing distribuito (un'app sola).
+- Configurazione esterna per ambiente (profili Spring).
+- Analisi statica e quality gate (SonarQube, Checkstyle, SpotBugs) quando si configura la CI (task a parte).
+
+## Frontend Angular (regole approvate 2026-11-05)
+
+### Architettura
+- Cartella `frontend/` nello stesso repo; un'unica app con area cliente e area admin.
+- Organizzazione per funzionalità, non per tipo di file: `features/<nome>/`, `shared/`, `core/`.
+- Standalone component e lazy loading delle route.
+- Componenti smart (container: stato e service) separati da quelli presentational (solo input/output).
+- La logica sta nei service, non nei componenti.
+
+### Codice
+- TypeScript in modalità strict; niente `any`, un'interfaccia o un tipo per ogni DTO.
+- `ChangeDetectionStrategy.OnPush` e Signals per lo stato locale.
+- Nuovo control flow (`@if`, `@for` con `track`).
+- RxJS: niente subscribe annidati (`switchMap`/`mergeMap`/`combineLatest`); `async` pipe o `takeUntilDestroyed`
+  per evitare memory leak.
+- Reactive Forms con validatori tipizzati per i form complessi.
+
+### Comunicazione col backend
+- `HttpClient` solo dentro service dedicati, mai chiamato dai componenti; client generati da OpenAPI.
+- Interceptor per la gestione globale di errori e caricamento.
+- Errori gestiti in modo uniforme, con un feedback coerente all'utente.
+
+### Sicurezza
+- I controlli veri li fa il backend: i guard (`CanActivate`) servono solo alla UX.
+- Nessun token in `localStorage`: la sessione viaggia nel cookie HttpOnly.
+- Niente `bypassSecurityTrust*`, salvo casi motivati e rivisti.
