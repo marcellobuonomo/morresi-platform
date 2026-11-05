@@ -1,0 +1,179 @@
+// Vista 3 giorni / settimana con più collaboratori (misure da Fresha)
+$line: #ececec;
+$purple: #6950f3;
+$staff-col: 80px;
+
+:host {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: $staff-col repeat(var(--days), minmax(150px, 1fr));
+}
+
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 68px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 6%);
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: #0d0d0d;
+  cursor: pointer;
+
+  &.past {
+    color: #a3a3a3;
+  }
+
+  &.today {
+    color: $purple;
+
+    .day-num {
+      background: $purple;
+      color: #fff;
+    }
+  }
+}
+
+.day-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.row {
+  min-height: 172px;
+  border-bottom: 1px solid $line;
+}
+
+.staff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #fff, 0 0 0 2px currentColor;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: #0d0d0d;
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-left: 1px solid $line;
+
+  &:hover {
+    background: #faf9ff;
+  }
+
+  &.off {
+    background-color: #f2f2f2;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent 0,
+      transparent 2.5px,
+      rgb(229 229 229 / 70%) 3px,
+      rgb(229 229 229 / 70%) 5.5px,
+      transparent 6px,
+      transparent 8.5px
+    );
+  }
+}
+
+.more {
+  align-self: center;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: #6b6b6b;
+  cursor: pointer;
+
+  &:hover {
+    color: #0d0d0d;
+    text-decoration: underline;
+  }
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+}
+
+.popover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 420px;
+  min-width: 220px;
+  padding: 10px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
+}
+
+.pop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 14px;
+
+  button {
+    border: none;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+  }
+}

@@ -13,6 +13,9 @@ function appt(start: string, end: string): Appointment {
     status: 'BOOKED',
     serviceName: 'Gentleman haircut',
     priceMinor: 3000,
+    online: false,
+    paid: false,
+    hasNotes: false,
   };
 }
 

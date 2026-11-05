@@ -1,6 +1,6 @@
 import { Appointment, TimeRange } from '../../core/api/models';
 
-/** Altezza di un'ora nella griglia, come su Fresha. */
+/** Altezza di un'ora nella griglia: 96 px come su Fresha ("Medio piccolo"); cambia con lo zoom. */
 export const HOUR_PX = 96;
 export const DAY_MINUTES = 24 * 60;
 
@@ -25,15 +25,19 @@ export function minuteOfDay(isoLocal: string, day: string): number {
   return Number(isoLocal.slice(11, 13)) * 60 + Number(isoLocal.slice(14, 16));
 }
 
-export function minutesToPx(minutes: number): number {
-  return (minutes * HOUR_PX) / 60;
+export function minutesToPx(minutes: number, hourPx = HOUR_PX): number {
+  return (minutes * hourPx) / 60;
 }
 
 /**
  * Posiziona gli appuntamenti di una colonna. Quelli che si sovrappongono stanno affiancati in corsie
  * della stessa larghezza (es. due appuntamenti alle 18:00 → 50% ciascuno), come su Fresha.
  */
-export function placeAppointments(appointments: Appointment[], day: string): PlacedBlock<Appointment>[] {
+export function placeAppointments(
+  appointments: Appointment[],
+  day: string,
+  hourPx = HOUR_PX,
+): PlacedBlock<Appointment>[] {
   const sorted = appointments
     .map((item) => ({ item, start: minuteOfDay(item.start, day), end: minuteOfDay(item.end, day) }))
     .sort((a, b) => a.start - b.start || b.end - a.end);
@@ -48,8 +52,8 @@ export function placeAppointments(appointments: Appointment[], day: string): Pla
     for (const g of group) {
       placed.push({
         item: g.item,
-        top: minutesToPx(g.start),
-        height: minutesToPx(g.end - g.start),
+        top: minutesToPx(g.start, hourPx),
+        height: minutesToPx(g.end - g.start, hourPx),
         left: (g.lane * 100) / lanes,
         width: 100 / lanes,
       });
@@ -78,7 +82,11 @@ export function placeAppointments(appointments: Appointment[], day: string): Pla
 }
 
 /** Fasce fuori turno (tratteggiate): il complemento dei turni nel giorno. */
-export function offShiftRanges(shifts: TimeRange[], day: string): { top: number; height: number }[] {
+export function offShiftRanges(
+  shifts: TimeRange[],
+  day: string,
+  hourPx = HOUR_PX,
+): { top: number; height: number }[] {
   const ranges: { top: number; height: number }[] = [];
   let cursor = 0;
   const sorted = shifts
@@ -86,14 +94,19 @@ export function offShiftRanges(shifts: TimeRange[], day: string): { top: number;
     .sort((a, b) => a.start - b.start);
   for (const s of sorted) {
     if (s.start > cursor) {
-      ranges.push({ top: minutesToPx(cursor), height: minutesToPx(s.start - cursor) });
+      ranges.push({ top: minutesToPx(cursor, hourPx), height: minutesToPx(s.start - cursor, hourPx) });
     }
     cursor = Math.max(cursor, s.end);
   }
   if (cursor < DAY_MINUTES) {
-    ranges.push({ top: minutesToPx(cursor), height: minutesToPx(DAY_MINUTES - cursor) });
+    ranges.push({ top: minutesToPx(cursor, hourPx), height: minutesToPx(DAY_MINUTES - cursor, hourPx) });
   }
   return ranges;
+}
+
+/** Elementi (turni, fasce bloccate, appuntamenti) che toccano il giorno. */
+export function onDay<T extends { start: string; end: string }>(items: T[], day: string): T[] {
+  return items.filter((i) => i.start.slice(0, 10) <= day && i.end.slice(0, 10) >= day && i.end !== `${day}T00:00:00`);
 }
 
 /** Iniziali per l'avatar: "Giuseppe Peppe" → "GP". */

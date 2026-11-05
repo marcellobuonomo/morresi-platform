@@ -1,15 +1,152 @@
 <header class="toolbar">
-  <button type="button" class="btn" (click)="today()">Oggi</button>
-  <div class="date-nav">
-    <button type="button" class="btn icon" aria-label="Giorno precedente" (click)="shift(-1)">‹</button>
-    <span class="date-label">{{ dayLabel() }}</span>
-    <button type="button" class="btn icon" aria-label="Giorno successivo" (click)="shift(1)">›</button>
+  <button type="button" class="btn" (click)="goTo(today)">Oggi</button>
+
+  <div class="anchor">
+    <div class="date-nav">
+      <button type="button" class="btn-plain icon" aria-label="Precedente" (click)="step(-1)">
+        <app-icon name="chevron-left" [size]="18" />
+      </button>
+      <button type="button" class="btn-plain date-label" (click)="toggle('date')">{{ label() }}</button>
+      <button type="button" class="btn-plain icon" aria-label="Successivo" (click)="step(1)">
+        <app-icon name="chevron-right" [size]="18" />
+      </button>
+    </div>
+    @if (popover() === 'date') {
+      <div class="backdrop" (click)="popover.set(null)"></div>
+      <app-date-picker [selected]="day()" [today]="today" (picked)="goTo($event)" />
+    }
   </div>
-  <span class="view">Giorno</span>
+
+  <div class="anchor">
+    <button type="button" class="btn" (click)="toggle('team')">
+      {{ teamLabel() }} <app-icon name="chevron-down" [size]="16" />
+    </button>
+    @if (popover() === 'team') {
+      <div class="backdrop" (click)="popover.set(null)"></div>
+      <app-team-filter [staff]="activeStaff()" [selection]="selection()" (changed)="setTeam($event)" />
+    }
+  </div>
+
+  <button type="button" class="btn icon-only" aria-label="Tutti i filtri" title="Tutti i filtri" (click)="toolbarDrawer.set('filters')">
+    <app-icon name="sliders" [size]="18" />
+  </button>
+
+  <div class="right">
+    <button type="button" class="btn icon-only" aria-label="Impostazioni del calendario" title="Impostazioni del calendario" (click)="toolbarDrawer.set('settings')">
+      <app-icon name="settings" [size]="18" />
+    </button>
+    <button type="button" class="btn icon-only" aria-label="Lista d'attesa" title="Lista d'attesa" (click)="toolbarDrawer.set('waitlist')">
+      <app-icon name="waitlist" [size]="18" />
+    </button>
+
+    <div class="joined">
+      <button type="button" class="btn-plain icon" aria-label="Aggiorna" title="Aggiorna" (click)="data.reload()">
+        <app-icon name="refresh" [size]="18" />
+      </button>
+      <div class="anchor">
+        <button type="button" class="btn-plain view-btn" (click)="toggle('view')">
+          {{ viewLabel() }} <app-icon name="chevron-down" [size]="16" />
+        </button>
+        @if (popover() === 'view') {
+          <div class="backdrop" (click)="popover.set(null)"></div>
+          <div class="menu right-aligned" role="menu">
+            @for (v of views; track v.id) {
+              <button type="button" role="menuitem" [class.on]="v.id === currentView()" (click)="setView(v.id)">
+                <app-icon [name]="v.icon" [size]="16" /> {{ v.label }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="anchor">
+      <button type="button" class="btn dark" (click)="toggle('add')">
+        Aggiungi <app-icon name="chevron-down" [size]="16" />
+      </button>
+      @if (popover() === 'add') {
+        <div class="backdrop" (click)="popover.set(null)"></div>
+        <div class="menu right-aligned" role="menu">
+          <button type="button" role="menuitem" (click)="openNewAppointment()">
+            <app-icon name="calendar" [size]="18" /> Appuntamento
+          </button>
+          <button type="button" role="menuitem"><app-icon name="users-plus" [size]="18" /> Appuntamento di gruppo</button>
+          <button type="button" role="menuitem"><app-icon name="block" [size]="18" /> Fascia oraria bloccata</button>
+          <button type="button" role="menuitem"><app-icon name="tag" [size]="18" /> Vendita</button>
+          <button type="button" role="menuitem"><app-icon name="cash" [size]="18" /> Pagamento rapido</button>
+        </div>
+      }
+    </div>
+  </div>
 </header>
 
-@if (agendaDay.value(); as data) {
-  <app-agenda-grid [day]="data" [isToday]="isToday()" />
-} @else if (agendaDay.isLoading() && !agendaDay.error()) {
+@if (agendaData()) {
+  @switch (currentView()) {
+    @case ('month') {
+      <app-month-view
+        [staff]="visibleStaff()"
+        [days]="days()"
+        [month]="day().slice(0, 7)"
+        [today]="today"
+        (appointmentOpen)="openAppointmentId.set($event)"
+        (dayOpen)="openDay($event)"
+      />
+    }
+    @case ('day') {
+      <app-time-grid
+        [columns]="gridColumns()"
+        [hourPx]="hourPx()"
+        [today]="today"
+        (appointmentOpen)="openAppointmentId.set($event)"
+        (newAppointment)="openNewAppointment($event)"
+        (staffView)="showStaff($event.staffId, $event.view)"
+        (dayOpen)="openDay($event)"
+      />
+    }
+    @default {
+      @if (singleStaff(); as single) {
+        <app-time-grid
+          [columns]="gridColumns()"
+          [hourPx]="hourPx()"
+          [today]="today"
+          [singleStaff]="single"
+          (appointmentOpen)="openAppointmentId.set($event)"
+          (newAppointment)="openNewAppointment($event)"
+          (staffView)="showStaff($event.staffId, $event.view)"
+          (dayOpen)="openDay($event)"
+        />
+      } @else {
+        <app-matrix-view
+          [staff]="visibleStaff()"
+          [colorIndex]="colorIndex()"
+          [days]="days()"
+          [today]="today"
+          [showEnd]="currentView() === '3days'"
+          (appointmentOpen)="openAppointmentId.set($event)"
+          (dayOpen)="openDay($event)"
+          (staffOpen)="showStaff($event)"
+        />
+      }
+    }
+  }
+} @else if (data.isLoading()) {
   <p class="state">Caricamento…</p>
+}
+
+@if (openAppointmentId(); as id) {
+  <app-appointment-drawer [appointmentId]="id" (closed)="openAppointmentId.set(null)" />
+}
+@if (newAppointment(); as n) {
+  <app-new-appointment-drawer [slotLabel]="n.label" (closed)="newAppointment.set(null)" />
+}
+@switch (toolbarDrawer()) {
+  @case ('settings') {
+    <app-calendar-settings-drawer [hourPx]="hourPx()" (applied)="applyZoom($event)" (closed)="toolbarDrawer.set(null)" />
+  }
+  @case ('filters') {
+    <app-filters-drawer (closed)="toolbarDrawer.set(null)" />
+  }
+  @case ('waitlist') {
+    <app-waitlist-drawer (closed)="toolbarDrawer.set(null)" />
+  }
 }

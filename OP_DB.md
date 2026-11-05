@@ -91,7 +91,7 @@ npm install        # solo la prima volta o dopo modifiche a package.json
 npm start          # http://localhost:4200, /api passa dal proxy al backend (proxy.conf.json)
 ```
 
-- Agenda: http://localhost:4200/admin/agenda (giorno nell'URL, es. `?date=2026-10-31`).
+- Agenda: http://localhost:4200/admin/agenda (nell'URL giorno, vista e collaboratori, es. `?date=2026-10-31&view=week&staff=all`).
 - Dopo ogni modifica alle API, con il backend acceso: `npm run api` rigenera il client in `src/app/core/api`
   (file generati, da non modificare a mano).
 - Test: `npx ng test --watch=false`.

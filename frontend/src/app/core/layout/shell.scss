@@ -1,0 +1,134 @@
+// Misure prese da Fresha (schermo 1920 px): barra 64 px, menu 72 px, voci 52 px
+$topbar: 64px;
+$sidebar: 72px;
+
+:host {
+  display: grid;
+  grid-template-columns: $sidebar 1fr;
+  grid-template-rows: $topbar 1fr;
+  height: 100vh;
+}
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.logo {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #0d0d0d;
+  text-decoration: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: #0d0d0d;
+  cursor: pointer;
+
+  &:hover {
+    background: #f2f2f2;
+  }
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  margin-left: 8px;
+  border: none;
+  border-radius: 50%;
+  background: #ebf8fe;
+  color: #0075a8;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+  background: #0d0d0d;
+}
+
+.nav-item {
+  position: relative;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+
+  &.help {
+    margin-top: auto;
+    margin-bottom: 8px;
+  }
+
+  &:hover .nav-icon {
+    background: rgb(255 255 255 / 12%);
+  }
+
+  &:hover .tooltip {
+    opacity: 1;
+  }
+
+  &.active .nav-icon {
+    background: #6950f3;
+  }
+}
+
+.nav-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.tooltip {
+  position: absolute;
+  left: 64px;
+  z-index: 60;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #0d0d0d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,140 @@
+$line: #ececec;
+$purple: #6950f3;
+
+.layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+}
+
+.client {
+  border-right: 1px solid $line;
+}
+
+.add-client {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 24px 12px;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+
+  strong {
+    font-size: 15px;
+  }
+
+  &:hover .icon {
+    background: #e7e2fd;
+  }
+}
+
+.icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f1eefe;
+  color: $purple;
+}
+
+.muted {
+  display: block;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #6b6b6b;
+}
+
+.services {
+  overflow-y: auto;
+  padding: 28px 24px;
+
+  h2 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  h3 {
+    margin: 24px 0 10px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+.count {
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f2f2f2;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  margin-top: 14px;
+  padding: 0 14px;
+  border: 1px solid #d3d3d3;
+  border-radius: 10px;
+  color: #6b6b6b;
+
+  &:focus-within {
+    border-color: $purple;
+  }
+
+  input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font: inherit;
+    font-size: 15px;
+  }
+}
+
+.service {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  border: none;
+  border-left: 4px solid;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: #f7f7f7;
+  }
+
+  strong {
+    font-weight: 500;
+  }
+}
+
+.price {
+  flex-shrink: 0;
+  text-align: right;
+  font-weight: 600;
+
+  .muted {
+    display: inline;
+    margin-right: 4px;
+  }
+}

@@ -1,0 +1,186 @@
+<div class="grid" #scroller (mouseleave)="hoverSlot.set(null)">
+  <div class="head" [style.--cols]="columns().length">
+    <div class="corner">
+      @if (singleStaff(); as staff) {
+        <span class="avatar small" [style.background]="layout()[0]?.avatar?.bg" [style.color]="layout()[0]?.avatar?.fg">
+          {{ initials(staff.fullName) }}
+        </span>
+        <span class="corner-name">{{ staff.fullName }}</span>
+      }
+    </div>
+    @for (l of layout(); track l.col.key) {
+      @if (l.col.header === 'staff') {
+        <div class="staff-head">
+          <button type="button" class="staff" [class.open]="staffMenu() === l.col.key" (click)="staffMenu.set(l.col.key)">
+            <span class="avatar" [style.background]="l.avatar.bg" [style.color]="l.avatar.fg">{{ l.initials }}</span>
+            <span class="name">
+              {{ l.col.staff.fullName }}
+              @if (staffMenu() === l.col.key) {
+                <app-icon name="chevron-down" [size]="14" />
+              }
+            </span>
+          </button>
+          @if (staffMenu() === l.col.key) {
+            <div class="backdrop" (click)="staffMenu.set(null)"></div>
+            <div class="menu staff-menu" role="menu">
+              @for (v of staffViews; track v.view) {
+                <button type="button" role="menuitem" (click)="chooseStaffView(l.col.staff.id, v.view)">
+                  <app-icon [name]="v.icon" [size]="16" /> {{ v.label }}
+                </button>
+              }
+              <p class="menu-title">Attività</p>
+              <button type="button" role="menuitem" (click)="addAppointment(l.col, firstShiftMinute(l.col))">
+                Aggiungi appuntamento
+              </button>
+              <button type="button" role="menuitem" class="todo">Aggiungi fascia oraria bloccata</button>
+              <button type="button" role="menuitem" class="todo">Modifica turno</button>
+              <button type="button" role="menuitem" class="todo">Aggiungi ferie</button>
+              <button type="button" role="menuitem" class="todo">Visualizza membro del team</button>
+            </div>
+          }
+        </div>
+      } @else {
+        <button
+          type="button"
+          class="day-head"
+          [class.today]="l.col.date === today()"
+          [class.past]="l.col.date < today()"
+          (click)="dayOpen.emit(l.col.date)"
+        >
+          <span class="day-num">{{ dayOfMonth(l.col.date) }}</span>
+          <span>{{ weekdayLong(l.col.date) }}</span>
+        </button>
+      }
+    }
+  </div>
+
+  <div class="body" [style.--cols]="columns().length" [style.--quarter]="quarterPx() + 'px'" [style.--hour]="hourPx() + 'px'" [style.height.px]="dayHeight()">
+    <div class="gutter">
+      @for (h of hours; track h) {
+        <span class="hour" [style.top.px]="h * hourPx()">{{ hourLabel(h) }}</span>
+      }
+      @if (hasToday()) {
+        <span class="now-pill" [style.top.px]="nowTop()">{{ nowLabel() }}</span>
+      }
+    </div>
+
+    @for (l of layout(); track l.col.key) {
+      <div
+        class="column"
+        (mousemove)="onColumnMove($event, l.col.key)"
+        (click)="onColumnClick($event, l.col.key)"
+      >
+        @for (off of l.offShift; track off.top) {
+          <div class="off-shift" [style.top.px]="off.top" [style.height.px]="off.height"></div>
+        }
+
+        @if (hoverSlot(); as slot) {
+          @if (slot.key === l.col.key && slotMenu()?.key !== l.col.key) {
+            <div class="slot-hover" [style.top.px]="slotTop(slot.minute)" [style.height.px]="quarterPx()">
+              {{ minutesToTime(slot.minute) }}
+            </div>
+          }
+        }
+
+        @for (b of l.blocks; track b.block.start) {
+          <div class="block" [style.top.px]="b.top" [style.height.px]="b.height" [style.background]="blockColor">
+            <span class="time">{{ timeRange($any(b.block)) }}</span>
+            <strong>{{ blockLabel(b.block) }}</strong>
+          </div>
+        }
+
+        @for (p of l.appointments; track p.item.itemId) {
+          <div
+            class="appt"
+            [style.top.px]="p.top"
+            [style.height.px]="p.height"
+            [style.left]="'calc(' + p.left + '% + 1px)'"
+            [style.width]="'calc(' + p.width + '% - 2px)'"
+            [style.background]="statusColor(p.item.status)"
+            (mouseenter)="hoverCard.set({ key: l.col.key, block: p })"
+            (mouseleave)="hoverCard.set(null)"
+            (click)="appointmentOpen.emit(p.item.appointmentId)"
+          >
+            <div class="line">
+              <span class="time">{{ timeRange(p.item) }}</span>
+              <strong>{{ p.item.clientName ?? 'Senza appuntamento' }}</strong>
+            </div>
+            <div class="service">{{ p.item.serviceName }}</div>
+            <span class="icons">
+              @if (p.item.paid) {
+                <app-icon name="tag-filled" [size]="14" />
+              }
+              @if (p.item.hasNotes) {
+                <app-icon name="note" [size]="14" />
+              }
+              @if (p.item.online) {
+                <app-icon name="cloud" [size]="14" />
+              }
+            </span>
+          </div>
+        }
+
+        @if (hoverCard(); as card) {
+          @if (card.key === l.col.key) {
+            <div class="hover-card" [class.flip]="$last && !$first" [style.top.px]="card.block.top">
+              <div class="hc-head" [style.background]="'#3b82f6'">
+                <span>{{ timeRange(card.block.item) }}</span>
+                <span>{{ statusLabel(card.block.item.status) }}</span>
+              </div>
+              <div class="hc-client">
+                <span class="hc-avatar">{{ (card.block.item.clientName ?? 'S')[0] }}</span>
+                <div>
+                  <strong>{{ card.block.item.clientName ?? 'Senza appuntamento' }}</strong>
+                  @if (card.block.item.clientPhone) {
+                    <p>{{ card.block.item.clientPhone }}</p>
+                  }
+                </div>
+              </div>
+              <div class="hc-service">
+                <div>
+                  <strong>{{ card.block.item.serviceName }}</strong>
+                  <p>{{ l.col.staff.displayName }} · {{ duration(card.block.item) }} min</p>
+                </div>
+                <span>{{ formatPrice(card.block.item.priceMinor) }}</span>
+              </div>
+            </div>
+          }
+        }
+
+        @if (slotMenu(); as slot) {
+          @if (slot.key === l.col.key) {
+            <div class="slot-selected" [style.top.px]="slotTop(slot.minute)" [style.height.px]="quarterPx()">
+              {{ minutesToTime(slot.minute) }}
+            </div>
+            <div class="backdrop" (click)="slotMenu.set(null); $event.stopPropagation()"></div>
+            <div class="menu slot-menu" [class.flip]="!$first" [style.top.px]="slotTop(slot.minute)" role="menu">
+              <div class="menu-head">
+                <strong>{{ minutesToTime(slot.minute) }}</strong>
+                <button type="button" class="close" aria-label="Chiudi" (click)="slotMenu.set(null)">
+                  <app-icon name="x" [size]="16" />
+                </button>
+              </div>
+              <button type="button" role="menuitem" (click)="addAppointment(l.col, slot.minute)">
+                <app-icon name="calendar" [size]="18" /> Aggiungi appuntamento
+              </button>
+              <button type="button" role="menuitem" class="todo">
+                <app-icon name="users-plus" [size]="18" /> Aggiungi appuntamento di gruppo
+              </button>
+              <button type="button" role="menuitem" class="todo">
+                <app-icon name="block" [size]="18" /> Aggiungi fascia oraria bloccata
+              </button>
+            </div>
+          }
+        }
+
+        @if (l.col.date === today()) {
+          <div class="now-line" [style.top.px]="nowTop()"></div>
+        }
+      </div>
+    }
+  </div>
+
+  @if (columns().length === 0) {
+    <p class="empty">Nessun membro del team selezionato.</p>
+  }
+</div>

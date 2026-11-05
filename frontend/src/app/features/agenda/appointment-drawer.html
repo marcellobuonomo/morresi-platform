@@ -1,0 +1,143 @@
+<app-drawer label="Appuntamento" [width]="800" (closed)="closed.emit()">
+  @if (detail.value(); as d) {
+    <div class="layout">
+      <section class="client">
+        @if (d.client; as c) {
+          <span class="client-avatar">{{ c.fullName[0] }}</span>
+          <h3>{{ c.fullName }}</h3>
+          @if (c.phone) {
+            <p class="muted">{{ c.phone }}</p>
+          }
+          @if (c.firstAppointment) {
+            <span class="badge">Clienti al loro primo appuntamento</span>
+          }
+          @for (tag of c.tags; track tag) {
+            <span class="badge tag">{{ tag }}</span>
+          }
+          <button type="button" class="pill small">+ Aggiungi tag</button>
+          <div class="client-actions">
+            <button type="button" class="pill" (click)="menu.set('client')">
+              Attività <app-icon name="chevron-down" [size]="14" />
+            </button>
+            <button type="button" class="pill">Visualizza il profilo</button>
+            @if (menu() === 'client') {
+              <div class="backdrop" (click)="menu.set(null)"></div>
+              <div class="menu client-menu" role="menu">
+                <button type="button" role="menuitem">Prenota di nuovo</button>
+                <button type="button" role="menuitem">Invia un messaggio</button>
+                <button type="button" role="menuitem">Blocca cliente</button>
+              </div>
+            }
+          </div>
+          <hr />
+          <ul class="facts">
+            <li>
+              <app-icon name="cake" [size]="18" />
+              @if (c.birthDate) {
+                {{ birthDate(c.birthDate) }}
+              } @else {
+                <span class="muted">Aggiungi data di nascita</span>
+              }
+            </li>
+            <li><app-icon name="user-clock" [size]="18" /> Creato {{ clientSince(c.clientSince) }}</li>
+            @if (c.email) {
+              <li><app-icon name="note" [size]="18" /> {{ c.email }}</li>
+            }
+          </ul>
+        } @else {
+          <span class="client-avatar walk-in"><app-icon name="user-plus" [size]="28" /></span>
+          <h3>Senza appuntamento</h3>
+          <p class="muted">Cliente non registrato</p>
+        }
+      </section>
+
+      <section class="main">
+        <header class="main-head" [class]="'main-head ' + headerClass()">
+          <div>
+            <h2>{{ shortDate(d.start.slice(0, 10)) }} <app-icon name="chevron-down" [size]="18" /></h2>
+            <p>{{ timeOf(d.start) }} · Non ricorrente @if (d.online) { · Prenotato online }</p>
+          </div>
+          <div class="status-wrap">
+            <button type="button" class="status" (click)="menu.set('status')">
+              {{ statusLabel(d.status) }} <app-icon name="chevron-down" [size]="14" />
+            </button>
+            @if (menu() === 'status') {
+              <div class="backdrop" (click)="menu.set(null)"></div>
+              <div class="menu status-menu" role="menu">
+                @for (s of statusMenu; track s) {
+                  <button type="button" role="menuitem" (click)="menu.set(null)">
+                    {{ statusLabel(s) }}
+                    @if (s === d.status) {
+                      <app-icon name="check" [size]="16" />
+                    }
+                  </button>
+                }
+                <button type="button" role="menuitem" class="danger" (click)="menu.set(null)">Annulla</button>
+              </div>
+            }
+          </div>
+        </header>
+
+        <div class="main-body">
+          <h4>Servizi</h4>
+          @for (item of d.items; track item.id) {
+            <div class="service">
+              <div>
+                <strong>{{ item.serviceName }}</strong>
+                <p class="muted">
+                  {{ timeOf(item.start) }} - {{ endTime(item.start, item.durationMinutes) }} ·
+                  {{ durationLabel(item.durationMinutes) }} · {{ item.staffName }}
+                </p>
+              </div>
+              <strong>{{ formatPrice(item.priceMinor) }}</strong>
+            </div>
+          }
+          <button type="button" class="pill small"><app-icon name="plus" [size]="14" /> Aggiungi un servizio</button>
+
+          @if (d.clientNotes || d.internalNotes) {
+            <h4>Note</h4>
+            @if (d.clientNotes) {
+              <p class="note"><strong>Dal cliente:</strong> {{ d.clientNotes }}</p>
+            }
+            @if (d.internalNotes) {
+              <p class="note"><strong>Interne:</strong> {{ d.internalNotes }}</p>
+            }
+          }
+        </div>
+
+        <footer class="main-foot">
+          <div class="totals">
+            <span class="muted">Totale</span><span class="muted">{{ formatPrice(d.totalMinor) }}</span>
+            <strong>Da pagare</strong><strong>{{ formatPrice(toPay()) }}</strong>
+          </div>
+          <div class="buttons">
+            <div class="more-wrap">
+              <button type="button" class="round" aria-label="Altre azioni" (click)="menu.set('more')">
+                <app-icon name="dots" [size]="20" />
+              </button>
+              @if (menu() === 'more') {
+                <div class="backdrop" (click)="menu.set(null)"></div>
+                <div class="menu more-menu" role="menu">
+                  <p class="menu-title">Azioni rapide</p>
+                  <button type="button" role="menuitem">Aggiungi una nota</button>
+                  <hr />
+                  <button type="button" role="menuitem">Visualizza attività appuntamento</button>
+                  <button type="button" role="menuitem">Aggiungi all'appuntamento di gruppo</button>
+                  <button type="button" role="menuitem">Riprenota</button>
+                  <hr />
+                  <button type="button" role="menuitem">Riprogramma</button>
+                  <button type="button" role="menuitem" class="danger">Mancata presentazione</button>
+                  <button type="button" role="menuitem" class="danger">Annulla</button>
+                </div>
+              }
+            </div>
+            <button type="button" class="pill big">Paga ora <app-icon name="cash" [size]="18" /></button>
+            <button type="button" class="pill big dark">Pagamento</button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  } @else if (detail.isLoading()) {
+    <p class="loading">Caricamento…</p>
+  }
+</app-drawer>

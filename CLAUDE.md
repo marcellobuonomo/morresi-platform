@@ -72,11 +72,16 @@ cancellazione, prenotazione di gruppo (`group_id`), `discount_code` (solo online
 (`waitlist_entry`, prenota da solo il primo, senza acconto, avviso WhatsApp + email), foto/bio dei collaboratori,
 `instagram_url`. Storico Fresha reimportato (ARRIVED e motivi mappati; servizi al 20%, storico vendite a IVA 0).
 **B-01 deciso (2026-11-05):** Angular 22 in `frontend/`, un'unica app, calendario fatto da noi a imitazione di Fresha
-(misure e colori presi dal calendario di Fresha in sola lettura). **Primo pezzo: agenda giorno in sola lettura**
-(`GET /api/v1/agenda?date=`, package `agenda`; pagina `/admin/agenda`), con i dati veri del DB locale. API ancora
-aperta: va protetta con B-02. Avvio frontend e rigenerazione del client OpenAPI: OP_DB.md.
-**Ripartire da:** feedback sull'agenda; poi B-02 (autenticazione, compresa l'utenza di Sara) e A-04 (azioni
-sull'agenda: nuovo appuntamento, cambi di stato, trascinamento).
+(misure e colori presi dal calendario di Fresha in sola lettura). **Agenda in sola lettura, copiata da Fresha (2026-11-05):** shell admin (barra in alto 64 px con Cerca /
+Approfondimenti / Notifiche / Profilo con contenuto di esempio, menu laterale 72 px con 10 voci, solo Calendario
+attivo); viste Giorno, 3 giorni, Settimana, Mese (con più collaboratori 3 giorni/settimana = tabella collaboratori ×
+giorni, con uno solo = griglia oraria); hover, popover sullo slot, scheda al passaggio, cassetto dettagli e
+"Nuovo appuntamento" con dati veri; menu stato/⋮/Aggiungi visibili ma senza salvare. Font Inter.
+API: `GET /api/v1/agenda?from=&to=` (max 42 giorni), `/api/v1/agenda/appointments/{id}`, `/api/v1/agenda/services`.
+API ancora aperte: vanno protette con B-02. Avvio frontend e rigenerazione del client OpenAPI: OP_DB.md.
+Mancano nel modello: "collaboratore scelto dal cliente" (♥ di Fresha) e appuntamenti ricorrenti.
+**Ripartire da:** feedback sull'agenda; poi B-02 (autenticazione, compresa l'utenza di Sara) e A-04 (salvataggio:
+nuovo appuntamento, cambi di stato, trascinamento e ridimensionamento).
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

@@ -31,13 +31,14 @@ class AgendaServiceTest {
     void daySpansMidnightToMidnightInSalonTimezone() {
         when(repository.salonTimezone()).thenReturn("Europe/London");
 
-        service.getDay(DAY);
+        service.getAgenda(DAY, DAY);
 
         // In luglio Londra è UTC+1
         OffsetDateTime from = OffsetDateTime.of(2026, 7, 10, 0, 0, 0, 0, ZoneOffset.ofHours(1));
         OffsetDateTime to = from.plusDays(1);
         verify(repository).findStaff(from, to);
         verify(repository).findShifts(from, to, "Europe/London");
+        verify(repository).findBlocks(from, to, "Europe/London");
         verify(repository).findItems(from, to, "Europe/London");
     }
 
@@ -47,16 +48,16 @@ class AgendaServiceTest {
         UUID mattia = UUID.randomUUID();
         when(repository.salonTimezone()).thenReturn("Europe/London");
         when(repository.findStaff(any(), any())).thenReturn(List.of(
-                new StaffRow(roberta, "Roberta", "Roberta Maio", null),
-                new StaffRow(mattia, "Mattia", "Mattia Amorico", null)));
+                new StaffRow(roberta, "Roberta", "Roberta Maio", null, true),
+                new StaffRow(mattia, "Mattia", "Mattia Amorico", null, true)));
         when(repository.findShifts(any(), any(), eq("Europe/London"))).thenReturn(List.of(
                 new ShiftRow(roberta, DAY.atTime(9, 30), DAY.atTime(14, 30))));
         when(repository.findItems(any(), any(), eq("Europe/London"))).thenReturn(List.of(
                 item(mattia, DAY.atTime(10, 0), DAY.atTime(11, 15))));
 
-        AgendaDay day = service.getDay(DAY);
+        Agenda day = service.getAgenda(DAY, DAY);
 
-        assertThat(day.staff()).extracting(AgendaDay.StaffColumn::displayName).containsExactly("Roberta", "Mattia");
+        assertThat(day.staff()).extracting(Agenda.StaffColumn::displayName).containsExactly("Roberta", "Mattia");
         assertThat(day.staff().get(0).shifts()).hasSize(1);
         assertThat(day.staff().get(0).appointments()).isEmpty();
         assertThat(day.staff().get(1).shifts()).isEmpty();
@@ -66,6 +67,6 @@ class AgendaServiceTest {
 
     private static ItemRow item(UUID staffId, LocalDateTime start, LocalDateTime end) {
         return new ItemRow(staffId, UUID.randomUUID(), UUID.randomUUID(), start, end, "BOOKED", "Annalisa Ross",
-                "Haircut/blow dry", 6500L);
+                "+447000000000", "Haircut/blow dry", 6500L, true, false, false);
     }
 }

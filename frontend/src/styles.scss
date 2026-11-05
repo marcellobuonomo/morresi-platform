@@ -5,7 +5,13 @@ body {
 }
 
 body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  // Inter al posto di Roobert (il font di Fresha, a pagamento)
+  font-family: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #0d0d0d;
   background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
 }

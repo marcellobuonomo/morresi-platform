@@ -66,7 +66,7 @@ class AgendaControllerTest {
 
     @Test
     void returnsStaffOnShiftWithAppointmentsInSalonTime() throws Exception {
-        mvc.perform(get("/api/v1/agenda").param("date", "2026-07-10"))
+        mvc.perform(get("/api/v1/agenda").param("from", "2026-07-10").param("to", "2026-07-10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.timezone").value("Europe/London"))
                 // Fatima è cessata e ha solo un appuntamento annullato: niente colonna
@@ -78,9 +78,16 @@ class AgendaControllerTest {
     }
 
     @Test
-    void rejectsInvalidDateWithProblemDetail() throws Exception {
-        mvc.perform(get("/api/v1/agenda").param("date", "domani"))
+    void rejectsRangeLongerThanSixWeeksWithProblemDetail() throws Exception {
+        mvc.perform(get("/api/v1/agenda").param("from", "2026-07-10").param("to", "2026-09-30"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"));
+                .andExpect(jsonPath("$.detail").value("L'intervallo deve andare da 1 a 42 giorni."));
+    }
+
+    @Test
+    void returnsNotFoundForUnknownAppointment() throws Exception {
+        mvc.perform(get("/api/v1/agenda/appointments/00000000-0000-0000-0000-0000000000ff"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Appuntamento non trovato."));
     }
 }

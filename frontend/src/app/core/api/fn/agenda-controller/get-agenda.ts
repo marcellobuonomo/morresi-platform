@@ -7,16 +7,18 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { AgendaDay } from '../../models/agenda-day';
+import { Agenda } from '../../models/agenda';
 
-export interface GetDay$Params {
-  date: string;
+export interface GetAgenda$Params {
+  from: string;
+  to: string;
 }
 
-export function getDay(http: HttpClient, rootUrl: string, params: GetDay$Params, context?: HttpContext): Observable<StrictHttpResponse<AgendaDay>> {
-  const rb = new RequestBuilder(rootUrl, getDay.PATH, 'get');
+export function getAgenda(http: HttpClient, rootUrl: string, params: GetAgenda$Params, context?: HttpContext): Observable<StrictHttpResponse<Agenda>> {
+  const rb = new RequestBuilder(rootUrl, getAgenda.PATH, 'get');
   if (params) {
-    rb.query('date', params.date, {});
+    rb.query('from', params.from, {});
+    rb.query('to', params.to, {});
   }
 
   return http.request(
@@ -24,9 +26,9 @@ export function getDay(http: HttpClient, rootUrl: string, params: GetDay$Params,
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<AgendaDay>;
+      return r as StrictHttpResponse<Agenda>;
     })
   );
 }
 
-getDay.PATH = '/api/v1/agenda';
+getAgenda.PATH = '/api/v1/agenda';

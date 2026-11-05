@@ -1,0 +1,60 @@
+<header class="topbar">
+  <a class="logo" routerLink="/admin/agenda">morresi</a>
+  <div class="actions">
+    <button type="button" class="icon-btn" aria-label="Cerca" title="Cerca" (click)="toggle('search')">
+      <app-icon name="search" [size]="22" />
+    </button>
+    <button
+      type="button"
+      class="icon-btn"
+      aria-label="Approfondimenti sulle prestazioni"
+      title="Approfondimenti sulle prestazioni"
+      (click)="toggle('insights')"
+    >
+      <app-icon name="insights" [size]="22" />
+    </button>
+    <button type="button" class="icon-btn" aria-label="Notifiche" title="Notifiche" (click)="toggle('notifications')">
+      <app-icon name="bell" [size]="22" />
+    </button>
+    <button type="button" class="avatar" aria-label="Menu utente" (click)="toggle('profile')">MH</button>
+  </div>
+</header>
+
+<nav class="sidebar" aria-label="Menu principale">
+  @for (item of nav; track item.label) {
+    @if (item.link) {
+      <a class="nav-item" [routerLink]="item.link" routerLinkActive="active" [attr.aria-label]="item.label">
+        <span class="nav-icon"><app-icon [name]="item.icon" [size]="22" /></span>
+        <span class="tooltip">{{ item.label }}</span>
+      </a>
+    } @else {
+      <button type="button" class="nav-item" [attr.aria-label]="item.label">
+        <span class="nav-icon"><app-icon [name]="item.icon" [size]="22" /></span>
+        <span class="tooltip">{{ item.label }}</span>
+      </button>
+    }
+  }
+  <button type="button" class="nav-item help" aria-label="Assistenza e supporto">
+    <span class="nav-icon"><app-icon name="help" [size]="22" /></span>
+    <span class="tooltip">Assistenza e supporto</span>
+  </button>
+</nav>
+
+<main class="content">
+  <router-outlet />
+</main>
+
+@switch (openPanel()) {
+  @case ('search') {
+    <app-search-panel (closed)="close()" />
+  }
+  @case ('insights') {
+    <app-insights-drawer (closed)="close()" />
+  }
+  @case ('notifications') {
+    <app-notifications-drawer (closed)="close()" />
+  }
+  @case ('profile') {
+    <app-profile-menu (closed)="close()" />
+  }
+}

@@ -4,8 +4,12 @@
 export interface Appointment {
   appointmentId: string;
   clientName?: string;
+  clientPhone?: string;
   end: string;
+  hasNotes: boolean;
   itemId: string;
+  online: boolean;
+  paid: boolean;
   priceMinor: number;
   serviceName: string;
   start: string;
