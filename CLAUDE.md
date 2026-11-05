@@ -65,8 +65,8 @@ Luisa (De Almeida) sono persone diverse; Fatima e Samanda non lavorano più al s
 Importati anche orari di apertura e dati della sede (`data/import_salone.sql`) e 615 turni set–dic 2026 con settimana
 tipo (`scripts/fresha_shifts_to_sql.py`). Saltati i turni di "Angelo Mastrogiovanni" e "MorresiHR Human Resource"
 (non sono collaboratori in agenda). Nome del salone: "Morresi Hair Stylist". Sara è receptionist/admin: utente
-dell'app (B-02), non collaboratrice in agenda. Cessati: Anna Cresci, Fatima, Samanda (in `data/import_salone.sql`).
-Da chiarire: Anna Luisa (De Almeida, 108 appuntamenti, nessun turno) lavora ancora?
+dell'app (B-02), non collaboratrice in agenda. Cessati: Anna Cresci, Anna Luisa De Almeida, Fatima, Samanda
+(in `data/import_salone.sql`). In attività: Salvatore, Mattia, Roberta, Maria, Franco, Giuseppe.
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
