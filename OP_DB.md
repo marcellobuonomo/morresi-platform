@@ -111,3 +111,16 @@ Nuova connessione → **PostgreSQL**:
 - Le tabelle sono in `morresi` → `Schemas` → `public` → `Tables`.
 - Per vedere lo schema come diagramma: tasto destro su `public` → **View Diagram**.
 - Non modificare la struttura delle tabelle da DBeaver: ogni modifica di schema passa da una migrazione Flyway.
+
+## Import recensioni da Fresha
+
+Le recensioni di Fresha si estraggono dalla pagina "Reputazione online" del partner (sola lettura, vedi CLAUDE.md) in
+`data/recensioni_fresha.json`. La cartella `data/` contiene dati personali ed è esclusa da git.
+
+```powershell
+python scripts/fresha_reviews_to_sql.py data/recensioni_fresha.json data/import_recensioni.sql
+```
+
+Poi si esegue `data/import_recensioni.sql` con DBeaver o psql. È ripetibile: cancella le recensioni con
+`source = 'FRESHA'` e le reinserisce; crea in `staff` i collaboratori citati che mancano (confronto sul nome). Alla
+messa online: nuova estrazione (per le recensioni arrivate nel frattempo), poi lo stesso script sul DB di produzione.

@@ -12,6 +12,11 @@ area admin con statistiche (rendimento collaboratori, clienti top per spesa, ...
 - Stack: Java 21, Spring Boot 4.1, Maven (`backend/`, wrapper `mvnw`), PostgreSQL 17, Flyway, Testcontainers.
   Serve JDK 21 (`JAVA_HOME`) e Docker per i test.
 
+## Policy Fresha: sola lettura
+Sull'account Fresha del salone (partners.fresha.com) **non si modifica MAI nulla**: niente salvataggi, risposte alle
+recensioni, invii, impostazioni, attivazioni, cancellazioni, né click su pulsanti che cambiano dati. Solo lettura e
+navigazione per analisi ed estrazione dei dati. Nel dubbio non cliccare e chiedere.
+
 ## Branch
 `feature/dev` (sviluppo) → `env/svil` (integrazione) → `master` (produzione).
 Si lavora e si committa su `feature/dev`; merge verso `env/svil`/`master` solo su richiesta esplicita.
