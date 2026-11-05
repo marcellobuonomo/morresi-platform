@@ -82,13 +82,22 @@ $border: #d3d3d3;
   border: 1px solid $border;
   border-radius: 999px;
   background: #fff;
-  overflow: hidden;
 }
 
+// Niente overflow: hidden sul gruppo, altrimenti taglia i menu che si aprono sotto: si arrotondano i pulsanti
 .date-nav .icon,
 .joined .icon {
   width: 40px;
+  height: 34px;
   padding: 0;
+
+  &:first-child {
+    border-radius: 999px 0 0 999px;
+  }
+
+  &:last-child {
+    border-radius: 0 999px 999px 0;
+  }
 }
 
 .date-label {
@@ -98,7 +107,9 @@ $border: #d3d3d3;
 }
 
 .view-btn {
+  height: 34px;
   border-left: 1px solid $border;
+  border-radius: 0 999px 999px 0;
 }
 
 .backdrop {
