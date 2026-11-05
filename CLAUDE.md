@@ -55,6 +55,11 @@ card (ID, chi, settimane, dipendenze) in colonne Da fare / In corso / Fatto, pi�
 (frontend cliente e admin, backend Spring Boot, Postgres, Stripe, Twilio/WhatsApp, email, Google login e Places).
 Poi: risposte del titolare alle domande di PIANO_LAVORO.md §5, B-01 (scelta frontend) e B-02 (autenticazione). Su Fresha la disdetta è a 48h (da confermare; in `salon_settings` ora 24h).
 In sospeso: magazzino (§4.8), buoni (§4.9); su Fresha non sono usati.
+**2026-11-05 (pomeriggio):** board Miro https://miro.com/app/board/uXjVESMMmrI=/ con kanban dei task, domande al titolare,
+schema DB e architettura. Decisi i messaggi (conferma email, promemoria email + WhatsApp, recensione WhatsApp con link
+alla nostra piattaforma, compleanno email) → V9. Importati in locale da Fresha 1.821 recensioni (con voto ai
+collaboratori) e 6.161 clienti con `scripts/fresha_*_to_sql.py` (dati in `data/`, fuori da git; istruzioni in OP_DB.md).
+Da chiedere al titolare: Anna e "Anna Luisa" sono la stessa persona? Fatima, Samanda, Anna lavorano ancora al salone?
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.

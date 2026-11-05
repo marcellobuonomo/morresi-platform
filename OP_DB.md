@@ -124,3 +124,15 @@ python scripts/fresha_reviews_to_sql.py data/recensioni_fresha.json data/import_
 Poi si esegue `data/import_recensioni.sql` con DBeaver o psql. È ripetibile: cancella le recensioni con
 `source = 'FRESHA'` e le reinserisce; crea in `staff` i collaboratori citati che mancano (confronto sul nome). Alla
 messa online: nuova estrazione (per le recensioni arrivate nel frattempo), poi lo stesso script sul DB di produzione.
+
+## Import clienti da Fresha
+
+Export da Fresha: Clienti → Elenco dei clienti → Opzioni → Esporta → CSV, salvato in `data/clienti_fresha.csv`.
+
+```powershell
+python scripts/fresha_clients_to_sql.py data/clienti_fresha.csv data/import_clienti.sql
+```
+
+Poi si esegue `data/import_clienti.sql` con DBeaver o psql. Cancella tutti i clienti e li reinserisce: in locale si può
+rilanciare finché nessun appuntamento/vendita/recensione punta ai clienti; in produzione si esegue una volta sola, a DB
+vuoto, con un export fresco. Regole di unione, consensi, compleanni e lingua: in testa allo script.
