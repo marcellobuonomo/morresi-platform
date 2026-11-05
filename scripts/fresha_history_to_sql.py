@@ -16,9 +16,11 @@ Regole (decise col titolare il 2026-11-05: "si fa quel che si può senza inventa
 - servizi creati dal catalogo Fresha attuale; un appuntamento o una vendita con un servizio che non è nel catalogo
   si salta;
 - cliente collegato solo se il nome corrisponde a un solo cliente, altrimenti appuntamento/vendita senza cliente;
-- stati "Cliente in sede" e "Iniziato" (non previsti dal nostro modello) si saltano, come le vendite di rimborso;
+- stati "Cliente in sede" e "Iniziato" → ARRIVED (2026-11-05); le vendite di rimborso si saltano;
+- motivo di cancellazione: i 3 motivi di Fresha → cancellation_reason, gli altri nessun motivo;
 - le sovrapposizioni dello storico si importano come sovrapposizioni forzate dall'admin (forced_overlap);
-- Fresha non aveva aliquote: IVA 0 su servizi e righe di vendita.
+- servizi con IVA 20% (il salone è registrato IVA, 2026-11-05); righe di vendita dello storico con IVA 0 come su
+  Fresha, che non aveva aliquote.
 """
 
 import csv
@@ -31,7 +33,10 @@ from datetime import datetime, timedelta
 
 IMPORT_USER = "fresha-import@invalid"   # autore tecnico degli appuntamenti importati, disattivato
 STATUS = {"Completato": "COMPLETED", "Cancellato": "CANCELLED", "Mancata presentazione": "NO_SHOW",
-          "Nuovo": "BOOKED", "Confermato": "CONFIRMED"}
+          "Nuovo": "BOOKED", "Confermato": "CONFIRMED", "Cliente in sede": "ARRIVED", "Iniziato": "ARRIVED"}
+CANCELLATION_REASON = {"Annullato - Cliente non disponibile": "CLIENT_UNAVAILABLE",
+                       "Cancelled - Appointment made by mistake": "MADE_BY_MISTAKE",
+                       "Cancelled - Duplicate appointment": "DUPLICATE"}   # gli altri: nessun motivo
 SALE_STATUS = {"Completato": "COMPLETED", "Da pagare": "OPEN", "Parzialmente pagato": "OPEN"}
 METHOD = {"Contanti": "CASH", "Altro": "OTHER"}
 BATCH = 500
@@ -153,6 +158,7 @@ def main(folder, sql_path):
             "starts": starts, "ends": ends,
             "created": when(r["Data di creazione"]), "cancelled": when(r["Data di annullamento"]),
             "price": minor(r["Vendite nette"]), "forced": False,
+            "reason": CANCELLATION_REASON.get(r["Motivo della cancellazione"]) if status == "CANCELLED" else None,
         }
 
     # sovrapposizioni dello storico = forzate dall'admin
@@ -239,7 +245,7 @@ def main(folder, sql_path):
     out += [f"INSERT INTO staff (first_name, last_name, display_name) SELECT m.first_name, m.last_name, m.first_name "
             f"FROM imp_staff m WHERE NOT EXISTS (SELECT 1 FROM staff s WHERE {match});",
             f"UPDATE imp_staff m SET staff_id = (SELECT s.id FROM staff s WHERE {match} "
-            f"ORDER BY s.deleted_at NULLS FIRST, length(s.first_name) DESC LIMIT 1);",
+            f"ORDER BY s.deleted_at IS NOT NULL, length(s.first_name) DESC LIMIT 1);",
             "UPDATE staff s SET last_name = substr(m.full_name, length(s.first_name) + 2) FROM imp_staff m "
             "WHERE m.staff_id = s.id AND s.last_name IS NULL AND length(m.full_name) > length(s.first_name);",
             "",
@@ -254,7 +260,7 @@ def main(folder, sql_path):
     for i, s in enumerate(catalog):
         out.append(f"INSERT INTO service (category_id, name, description, duration_minutes, price_minor, price_type, "
                    f"vat_rate_bp, online_bookable, sort_order) SELECT id, {sql(s['name'])}, {sql(s['description'])}, "
-                   f"{s['duration']}, {s['price']}, {sql(s['price_type'])}, 0, {sql(s['online'])}, {i} "
+                   f"{s['duration']}, {s['price']}, {sql(s['price_type'])}, 2000, {sql(s['online'])}, {i} "
                    f"FROM service_category WHERE name = {sql(s['category'])};")
     out += ["-- Tutti i servizi a tutti i collaboratori in attività (su Fresha: \"Disponibile per: Tutti\")",
             "INSERT INTO service_staff (service_id, staff_id) SELECT sv.id, st.id FROM service sv, staff st "
@@ -263,16 +269,16 @@ def main(folder, sql_path):
             "-- Appuntamenti",
             "CREATE TEMP TABLE imp_appt (id uuid, item_id uuid, client text, staff text, service text, label text, "
             "status text, starts timestamp, ends timestamp, created timestamp, cancelled timestamp, price bigint, "
-            "forced boolean);"]
+            "forced boolean, reason text);"]
     out += inserts("imp_appt", ["id", "item_id", "client", "staff", "service", "label", "status", "starts", "ends",
-                                "created", "cancelled", "price", "forced"],
+                                "created", "cancelled", "price", "forced", "reason"],
                    [(a["id"], a["item_id"], a["client"], a["staff"], a["service"], a["label"], a["status"],
                      local(a["starts"]), local(a["ends"]), local(a["created"]), local(a["cancelled"]), a["price"],
-                     a["forced"]) for a in appts.values()])
+                     a["forced"], a["reason"]) for a in appts.values()])
     tz = "AT TIME ZONE 'Europe/London'"
     out += [f"INSERT INTO appointment (id, client_id, status, starts_at, ends_at, created_by_user_id, cancelled_at, "
-            f"created_at, updated_at) SELECT a.id, c.id, a.status, a.starts {tz}, a.ends {tz}, "
-            f"(SELECT id FROM app_user WHERE email = {sql(IMPORT_USER)}), a.cancelled {tz}, "
+            f"cancellation_reason, created_at, updated_at) SELECT a.id, c.id, a.status, a.starts {tz}, a.ends {tz}, "
+            f"(SELECT id FROM app_user WHERE email = {sql(IMPORT_USER)}), a.cancelled {tz}, a.reason, "
             f"coalesce(a.created, a.starts) {tz}, coalesce(a.cancelled, a.created, a.starts) {tz} "
             f"FROM imp_appt a LEFT JOIN imp_client c ON c.name = lower(a.client);",
             f"INSERT INTO appointment_item (id, appointment_id, service_id, staff_id, starts_at, ends_at, service_name, "

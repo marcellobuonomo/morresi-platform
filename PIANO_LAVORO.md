@@ -94,6 +94,9 @@ titolare prima di scrivere codice.
 7. **Vetrina online.** Foto e bio del collaboratore, foto del servizio, servizi in evidenza, testo "informazioni
    importanti", link Instagram e sito. Impatto: pochi campi su `staff`, `service`, `salon_settings`, più dove salvare
    le immagini.
+   **Deciso (2026-11-05, V10):** foto e bio per ogni collaboratore, caricate dall'admin (per ora bio finte e avatar
+   predefinito); link Instagram in `salon_settings`. Le foto stanno su disco nel server DigitalOcean, nel DB il percorso.
+   Foto dei servizi, servizi in evidenza, testo "informazioni importanti" e link al sito: non richiesti per ora.
 8. **Importazione dati da Fresha.** Migliaia di clienti e lo storico di appuntamenti e vendite, utile per le
    statistiche dal primo giorno. Impatto: un lavoro a sé (export Fresha → import); provenienza "Importata" già prevista.
    **Recensioni (verificato 2026-11-05):** 1.823, tutte Fresha (Google non collegato), voto medio 5,0. Ognuna ha nome del

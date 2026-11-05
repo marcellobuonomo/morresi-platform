@@ -59,6 +59,7 @@ Al successivo avvio dell'applicazione Flyway ricrea tutte le tabelle.
 | V7 | `product`, `sale_sequence`, `sale`, `sale_item`, `payment` |
 | V8 | `marketing_campaign`, `notification_log`, `review`, `review_staff_rating`, `audit_log` |
 | V9 | tipo `REVIEW_REQUEST` in `notification_log`, `appointment.review_token_hash`, `review` importabili da Fresha (`source`, `author_name`) |
+| V10 | stato `ARRIVED`, `appointment.cancellation_reason` / `group_id` / `discount_code_id`, `discount_code`, `waitlist_entry`, `waitlist_entry_service`, tipo `WAITLIST_BOOKED`, `staff.photo_path` / `bio`, `salon_settings.instagram_url` |
 
 ### Se una migrazione fallisce in locale
 

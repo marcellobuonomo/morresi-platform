@@ -399,6 +399,7 @@ CREATE TABLE appointment (
   cancelled_at         timestamptz,
   cancelled_by_user_id uuid REFERENCES app_user(id),
   late_cancellation    boolean NOT NULL DEFAULT false, -- disdetta dentro cancellation_window_hours
+  discount_code_id     uuid REFERENCES discount_code(id), -- codice usato prenotando online (V10, 2026-11-05)
   cancellation_reason  text CHECK (cancellation_reason IN ('CLIENT_UNAVAILABLE','MADE_BY_MISTAKE','DUPLICATE')),
                                                        -- facoltativo; NULL = nessun motivo (V10, 2026-11-05)
   review_token_hash    text UNIQUE,                    -- link della recensione senza login (V9, 2026-11-05)
@@ -444,6 +445,50 @@ Conferma dall'app solo per clienti registrati (`client.user_id` valorizzato), do
 Il promemoria arriva anche ai non registrati con telefono in scheda (deciso con le notifiche); per loro la conferma la
 segna il salone. L'appuntamento anonimo è tipicamente un cliente arrivato in salone che non vuole
 registrarsi: l'admin lo inserisce solo per le statistiche, senza promemoria né conferma.
+
+> Esempio codice sconto: Maria prenota online un taglio da 50 £ con FEBSALE (−20%). L'acconto del 10% si calcola su
+> 40 £; in cassa il conto parte già con 10 £ di sconto sulla riga (`sale_item.discount_minor`).
+
+```sql
+-- ✅ Approvato (2026-11-05, V10) — solo nella prenotazione online; in cassa lo sconto resta manuale
+-- Solo percentuale, vale su tutti i servizi, nessun limite di utilizzi
+CREATE TABLE discount_code (
+  code         citext NOT NULL UNIQUE,     -- es. FEBSALE, lo scrive il cliente prenotando
+  description  text,                       -- es. "Feb Sale"
+  percent_bp   int NOT NULL CHECK (percent_bp BETWEEN 1 AND 10000),  -- 2000 = −20%
+  valid_from   date NOT NULL,
+  valid_until  date NOT NULL,
+  active       boolean NOT NULL DEFAULT true,
+  CHECK (valid_until >= valid_from)
+);
+-- su appointment: discount_code_id uuid REFERENCES discount_code(id)
+```
+
+> Esempio lista d'attesa: Giulia vuole taglio + piega con Roberta sabato 14 tra le 10 e le 13, ma è tutto pieno e si
+> mette in lista. Venerdì qualcuno disdice le 11:00: il sistema prenota Giulia (primo in lista che va bene), segna la
+> riga `BOOKED` e la avvisa (WhatsApp + email). Il giorno dopo la data desiderata le righe ancora in attesa → `EXPIRED`.
+
+```sql
+-- ✅ Approvato (2026-11-05, V10) — l'appuntamento creato in automatico è BOOKED, senza acconto
+CREATE TABLE waitlist_entry (
+  client_id       uuid NOT NULL REFERENCES client(id),
+  staff_id        uuid REFERENCES staff(id),        -- NULL = qualsiasi collaboratore
+  desired_date    date NOT NULL,
+  from_minute     int CHECK (from_minute BETWEEN 0 AND 1439),  -- fascia desiderata; NULL = tutto il giorno
+  to_minute       int CHECK (to_minute BETWEEN 1 AND 1440),
+  status          text NOT NULL DEFAULT 'WAITING' CHECK (status IN ('WAITING','BOOKED','EXPIRED','CANCELLED')),
+  appointment_id  uuid REFERENCES appointment(id),  -- l'appuntamento creato in automatico
+  CHECK ((from_minute IS NULL) = (to_minute IS NULL) AND (to_minute IS NULL OR to_minute > from_minute))
+);
+CREATE INDEX ix_waitlist_waiting ON waitlist_entry (desired_date) WHERE status = 'WAITING';
+
+-- I servizi richiesti (es. taglio + piega)
+CREATE TABLE waitlist_entry_service (
+  waitlist_entry_id uuid NOT NULL REFERENCES waitlist_entry(id) ON DELETE CASCADE,
+  service_id        uuid NOT NULL REFERENCES service(id),
+  PRIMARY KEY (waitlist_entry_id, service_id)
+);
+```
 
 ### 4.7 Vendite e pagamenti
 
@@ -585,7 +630,9 @@ CREATE TABLE marketing_campaign (
 -- [std] Registro di ogni messaggio inviato o da inviare (anche gli avvisi al salone)
 CREATE TABLE notification_log (
   type                 text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','BIRTHDAY','CAMPAIGN',
-                                                     'REVIEW_REQUEST','SALON_NEW_BOOKING','SALON_CANCELLATION')),
+                                                     'REVIEW_REQUEST','WAITLIST_BOOKED',
+                                                     'SALON_NEW_BOOKING','SALON_CANCELLATION')),
+                                                     -- WAITLIST_BOOKED: WhatsApp + email (V10, 2026-11-05)
   channel              text NOT NULL CHECK (channel IN ('WHATSAPP','EMAIL')),
   client_id            uuid REFERENCES client(id),
   appointment_id       uuid REFERENCES appointment(id),
