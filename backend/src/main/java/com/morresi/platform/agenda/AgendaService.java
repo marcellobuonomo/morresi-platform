@@ -98,7 +98,7 @@ public class AgendaService {
     private static Appointment toAppointment(ItemRow row) {
         return new Appointment(row.appointmentId(), row.itemId(), row.start(), row.end(), row.status(),
                 row.clientName(), row.clientPhone(), row.serviceName(), row.priceMinor(), row.online(), row.paid(),
-                row.hasNotes());
+                row.hasNotes(), row.clientNoShows());
     }
 
     private static AppointmentDetail.Client toClient(ClientRow row, List<String> tags) {

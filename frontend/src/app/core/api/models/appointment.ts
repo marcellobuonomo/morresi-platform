@@ -4,6 +4,7 @@
 export interface Appointment {
   appointmentId: string;
   clientName?: string;
+  clientNoShows: number;
   clientPhone?: string;
   end: string;
   hasNotes: boolean;

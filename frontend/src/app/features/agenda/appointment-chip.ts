@@ -12,6 +12,9 @@ import { statusColor } from './appointment-status';
     <span class="time">{{ time() }}</span>
     <strong>{{ appointment().clientName ?? 'Senza appuntamento' }}</strong>
     <span class="icons">
+      @if (appointment().status === 'NO_SHOW') {
+        <app-icon name="eye-off" [size]="14" title="Mancata presentazione" />
+      }
       @if (appointment().paid) {
         <app-icon name="tag-filled" [size]="14" title="Pagato interamente" />
       }

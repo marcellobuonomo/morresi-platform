@@ -272,7 +272,7 @@ $purple: #6950f3;
   position: absolute;
   left: calc(100% + 8px);
   z-index: 8;
-  width: 300px;
+  width: 374px;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
@@ -292,12 +292,31 @@ $purple: #6950f3;
   }
 }
 
+// Intestazione colorata per stato, come su Fresha: alta 44 px, testo 15 px
 .hc-head {
   display: flex;
   justify-content: space-between;
-  padding: 10px 14px;
-  color: #fff;
-  font-weight: 600;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.hc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hc-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #feeceb;
+  color: #d4163a;
+  font-size: 13px;
 }
 
 .hc-client {

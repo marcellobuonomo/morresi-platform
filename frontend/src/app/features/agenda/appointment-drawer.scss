@@ -136,15 +136,6 @@ $line: #ececec;
   justify-content: space-between;
   align-items: flex-start;
   padding: 28px 24px 20px;
-  color: #fff;
-
-  &.open {
-    background: #3b82f6;
-  }
-
-  &.closed {
-    background: #6b7280;
-  }
 
   h2 {
     display: flex;
@@ -172,12 +163,12 @@ $line: #ececec;
   gap: 4px;
   height: 34px;
   padding: 0 14px;
-  border: 1px solid rgb(255 255 255 / 70%);
+  border: 1px solid currentColor;
   border-radius: 999px;
   background: none;
   font: inherit;
   font-size: 14px;
-  color: #fff;
+  color: inherit;
   cursor: pointer;
 }
 

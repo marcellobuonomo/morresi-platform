@@ -67,6 +67,6 @@ class AgendaServiceTest {
 
     private static ItemRow item(UUID staffId, LocalDateTime start, LocalDateTime end) {
         return new ItemRow(staffId, UUID.randomUUID(), UUID.randomUUID(), start, end, "BOOKED", "Annalisa Ross",
-                "+447000000000", "Haircut/blow dry", 6500L, true, false, false);
+                "+447000000000", "Haircut/blow dry", 6500L, true, false, false, 0);
     }
 }

@@ -4,7 +4,7 @@ import { Drawer } from '../../shared/drawer';
 import { Icon } from '../../shared/icon';
 import { minutesToTime, shortDate, timeOf } from './agenda-dates';
 import { AgendaService } from './agenda.service';
-import { formatPrice, STATUS_MENU, statusLabel } from './appointment-status';
+import { formatPhone, formatPrice, STATUS_MENU, statusHead, statusLabel } from './appointment-status';
 
 /**
  * Dettaglio appuntamento come su Fresha: a sinistra la scheda cliente, a destra data, stato, servizi e totale.
@@ -36,16 +36,14 @@ export class AppointmentDrawer {
     return d ? Math.max(d.totalMinor - d.paidMinor, 0) : 0;
   });
 
-  /** Intestazione blu per gli appuntamenti da fare, grigia per quelli chiusi (come su Fresha). */
-  protected readonly headerClass = computed(() => {
-    const status = this.detail.value()?.status;
-    return status === 'COMPLETED' || status === 'NO_SHOW' || status === 'CANCELLED' ? 'closed' : 'open';
-  });
+  /** Intestazione colorata per stato, come la scheda al passaggio del mouse (blu, grigia, rossa...). */
+  protected readonly head = computed(() => statusHead(this.detail.value()?.status ?? 'BOOKED'));
 
   protected readonly shortDate = shortDate;
   protected readonly timeOf = timeOf;
   protected readonly statusLabel = statusLabel;
   protected readonly formatPrice = formatPrice;
+  protected readonly formatPhone = formatPhone;
 
   protected endTime(start: string, durationMinutes: number): string {
     const [h, m] = timeOf(start).split(':').map(Number);

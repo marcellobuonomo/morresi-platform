@@ -107,6 +107,9 @@
             </div>
             <div class="service">{{ p.item.serviceName }}</div>
             <span class="icons">
+              @if (p.item.status === 'NO_SHOW') {
+                <app-icon name="eye-off" [size]="14" />
+              }
               @if (p.item.paid) {
                 <app-icon name="tag-filled" [size]="14" />
               }
@@ -123,23 +126,38 @@
         @if (hoverCard(); as card) {
           @if (card.key === l.col.key) {
             <div class="hover-card" [class.flip]="$last && !$first" [style.top.px]="card.block.top">
-              <div class="hc-head" [style.background]="'#3b82f6'">
+              <div
+                class="hc-head"
+                [style.background]="statusHead(card.block.item.status).background"
+                [style.color]="statusHead(card.block.item.status).color"
+              >
                 <span>{{ timeRange(card.block.item) }}</span>
-                <span>{{ statusLabel(card.block.item.status) }}</span>
+                <span class="hc-status">
+                  {{ statusLabel(card.block.item.status) }}
+                  @if (card.block.item.status === 'NO_SHOW') {
+                    <app-icon name="eye-off" [size]="16" />
+                  }
+                  @if (card.block.item.status === 'COMPLETED' && card.block.item.paid) {
+                    <app-icon name="tag-filled" [size]="16" />
+                  }
+                </span>
               </div>
               <div class="hc-client">
                 <span class="hc-avatar">{{ (card.block.item.clientName ?? 'S')[0] }}</span>
                 <div>
                   <strong>{{ card.block.item.clientName ?? 'Senza appuntamento' }}</strong>
                   @if (card.block.item.clientPhone) {
-                    <p>{{ card.block.item.clientPhone }}</p>
+                    <p>{{ formatPhone(card.block.item.clientPhone) }}</p>
+                  }
+                  @if (card.block.item.clientNoShows > 0) {
+                    <span class="hc-badge">{{ noShowLabel(card.block.item.clientNoShows) }}</span>
                   }
                 </div>
               </div>
               <div class="hc-service">
                 <div>
                   <strong>{{ card.block.item.serviceName }}</strong>
-                  <p>{{ l.col.staff.displayName }} · {{ duration(card.block.item) }} min</p>
+                  <p>{{ l.col.staff.fullName }} · {{ duration(card.block.item) }} min</p>
                 </div>
                 <span>{{ formatPrice(card.block.item.priceMinor) }}</span>
               </div>

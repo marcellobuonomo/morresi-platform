@@ -16,6 +16,7 @@ function appt(start: string, end: string): Appointment {
     online: false,
     paid: false,
     hasNotes: false,
+    clientNoShows: 0,
   };
 }
 

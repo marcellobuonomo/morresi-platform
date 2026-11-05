@@ -6,7 +6,7 @@
           <span class="client-avatar">{{ c.fullName[0] }}</span>
           <h3>{{ c.fullName }}</h3>
           @if (c.phone) {
-            <p class="muted">{{ c.phone }}</p>
+            <p class="muted">{{ formatPhone(c.phone) }}</p>
           }
           @if (c.firstAppointment) {
             <span class="badge">Clienti al loro primo appuntamento</span>
@@ -52,7 +52,7 @@
       </section>
 
       <section class="main">
-        <header class="main-head" [class]="'main-head ' + headerClass()">
+        <header class="main-head" [style.background]="head().background" [style.color]="head().color">
           <div>
             <h2>{{ shortDate(d.start.slice(0, 10)) }} <app-icon name="chevron-down" [size]="18" /></h2>
             <p>{{ timeOf(d.start) }} · Non ricorrente @if (d.online) { · Prenotato online }</p>

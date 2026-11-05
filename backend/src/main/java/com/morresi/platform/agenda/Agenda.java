@@ -33,6 +33,7 @@ public record Agenda(@NotNull LocalDate from, @NotNull LocalDate to, @NotNull St
                               @NotNull LocalDateTime end, @NotNull String status,
                               String clientName,   // NULL = cliente anonimo ("Senza appuntamento")
                               String clientPhone, @NotNull String serviceName, @NotNull Long priceMinor,
-                              @NotNull Boolean online, @NotNull Boolean paid, @NotNull Boolean hasNotes) {
+                              @NotNull Boolean online, @NotNull Boolean paid, @NotNull Boolean hasNotes,
+                              @NotNull Integer clientNoShows) {   // mancate presentazioni del cliente (badge)
     }
 }

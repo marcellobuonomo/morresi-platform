@@ -24,7 +24,16 @@ import {
   placeAppointments,
 } from './agenda-layout';
 import { avatarColors } from './avatar';
-import { BLOCK_COLOR, BLOCK_LABEL, formatPrice, statusColor, statusLabel } from './appointment-status';
+import {
+  BLOCK_COLOR,
+  BLOCK_LABEL,
+  formatPhone,
+  formatPrice,
+  noShowLabel,
+  statusColor,
+  statusHead,
+  statusLabel,
+} from './appointment-status';
 
 /** Una colonna della griglia: un collaboratore in un giorno. */
 export interface GridColumn {
@@ -63,6 +72,7 @@ const STAFF_VIEWS: { view: AgendaView; label: string; icon: string }[] = [
   imports: [Icon],
   templateUrl: './time-grid.html',
   styleUrl: './time-grid.scss',
+  host: { '(document:keydown.escape)': 'slotMenu.set(null); staffMenu.set(null)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TimeGrid {
@@ -176,7 +186,10 @@ export class TimeGrid {
   protected readonly minutesToTime = minutesToTime;
   protected readonly statusColor = statusColor;
   protected readonly statusLabel = statusLabel;
+  protected readonly statusHead = statusHead;
+  protected readonly noShowLabel = noShowLabel;
   protected readonly formatPrice = formatPrice;
+  protected readonly formatPhone = formatPhone;
   protected readonly weekdayLong = weekdayLong;
   protected readonly dayOfMonth = dayOfMonth;
   protected readonly blockColor = BLOCK_COLOR;

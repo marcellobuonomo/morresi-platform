@@ -28,7 +28,7 @@ public class AgendaRepository {
 
     record ItemRow(UUID staffId, UUID appointmentId, UUID itemId, LocalDateTime start, LocalDateTime end, String status,
                    String clientName, String clientPhone, String serviceName, Long priceMinor, Boolean online,
-                   Boolean paid, Boolean hasNotes) {
+                   Boolean paid, Boolean hasNotes, Integer clientNoShows) {
     }
 
     record AppointmentRow(UUID id, String status, LocalDateTime start, LocalDateTime end, Boolean online,
@@ -117,7 +117,9 @@ public class AgendaRepository {
                        i.service_name, i.price_minor,
                        %s AS online,
                        EXISTS (SELECT 1 FROM sale s WHERE s.appointment_id = a.id AND s.status = 'COMPLETED') AS paid,
-                       (a.client_notes IS NOT NULL OR a.internal_notes IS NOT NULL) AS has_notes
+                       (a.client_notes IS NOT NULL OR a.internal_notes IS NOT NULL) AS has_notes,
+                       (SELECT count(*) FROM appointment ns
+                        WHERE ns.client_id = a.client_id AND ns.status = 'NO_SHOW')::int AS client_no_shows
                 FROM appointment_item i
                 JOIN appointment a ON a.id = i.appointment_id
                 LEFT JOIN client c ON c.id = a.client_id
