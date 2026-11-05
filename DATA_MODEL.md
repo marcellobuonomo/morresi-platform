@@ -269,7 +269,11 @@ CREATE TABLE staff_week_pattern (
 - **Applica preset** (`shift_template`) a più celle selezionate (giorni × collaboratori).
 - **Cancellazione in blocco** di un intervallo; modifica rapida trascinando i bordi del turno in agenda.
 
-**Prenotabilità di un collaboratore** = turno presente ∩ salone aperto (`opening_hours` + `schedule_exception`) − `staff_time_block` − appuntamenti esistenti.
+**Prenotabilità di un collaboratore** = turno presente − `staff_time_block` − appuntamenti esistenti.
+Decisione (2026-11-05, col titolare): contano i turni, non gli orari di apertura. Un collaboratore con turno è
+prenotabile (anche online) in qualunque giorno e ora, anche di lunedì o di domenica (es. Mattia domenica 10–14).
+`opening_hours` sono gli orari mostrati sulla pagina del salone; le chiusure (`schedule_exception` CLOSED) agiscono
+quando si creano i turni (la copia settimana salta quei giorni).
 
 
 ### 4.4 Catalogo servizi
