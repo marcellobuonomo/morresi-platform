@@ -388,6 +388,7 @@ CREATE TABLE appointment (
   cancelled_at         timestamptz,
   cancelled_by_user_id uuid REFERENCES app_user(id),
   late_cancellation    boolean NOT NULL DEFAULT false, -- disdetta dentro cancellation_window_hours
+  review_token_hash    text UNIQUE,                    -- link della recensione senza login (V9, 2026-11-05)
   CHECK (ends_at > starts_at)
 );
 CREATE INDEX ix_appt_calendar ON appointment (starts_at);
@@ -546,6 +547,10 @@ CREATE TABLE product (
 > lingua del messaggio = dalla nazionalità (italiano per clienti italiani, altrimenti inglese); campagne via email;
 > messaggi anche ai clienti non registrati; testi fissi (nel codice, con il nome del salone
 > preso da `salon_settings`); avviso al salone via email per nuove prenotazioni/disdette online; campagne promozionali sì.
+>
+> Decisioni (2026-11-05, col titolare): per ogni appuntamento conferma via email, promemoria via email e WhatsApp,
+> richiesta di recensione via WhatsApp dopo l'appuntamento completato; auguri di compleanno via email. Nessun altro
+> messaggio automatico (spostato, annullato, no-show, invito a riprenotare). Budget WhatsApp circa 250 l'anno.
 
 ```sql
 -- ✅ Approvato (2026-11-03)
@@ -563,7 +568,7 @@ CREATE TABLE marketing_campaign (
 -- [std] Registro di ogni messaggio inviato o da inviare (anche gli avvisi al salone)
 CREATE TABLE notification_log (
   type                 text NOT NULL CHECK (type IN ('BOOKING_CONFIRMATION','REMINDER','BIRTHDAY','CAMPAIGN',
-                                                     'SALON_NEW_BOOKING','SALON_CANCELLATION')),
+                                                     'REVIEW_REQUEST','SALON_NEW_BOOKING','SALON_CANCELLATION')),
   channel              text NOT NULL CHECK (channel IN ('WHATSAPP','EMAIL')),
   client_id            uuid REFERENCES client(id),
   appointment_id       uuid REFERENCES appointment(id),
@@ -578,9 +583,10 @@ CREATE TABLE notification_log (
 CREATE INDEX ix_notif_due ON notification_log (scheduled_for) WHERE status = 'SCHEDULED';
 ```
 
-Regole: prenotazione ricevuta, promemoria e auguri su WhatsApp a ogni cliente con telefono in scheda (registrato o no).
-Prenotazione ricevuta e promemoria sono messaggi di servizio (nessun consenso marketing); auguri solo con consenso
-WhatsApp; campagne solo via email e con consenso email. Modelli WhatsApp (en/it) approvati una volta da Meta. Tolta
+Regole (aggiornate 2026-11-05): conferma e promemoria via email a chi ha l'email in scheda; promemoria e richiesta di
+recensione via WhatsApp a ogni cliente con telefono (registrato o no). Conferma, promemoria e richiesta di recensione
+sono messaggi di servizio (nessun consenso marketing); auguri via email solo con consenso email; campagne solo via
+email e con consenso email. Modelli WhatsApp (en/it) approvati una volta da Meta. Tolta
 `notification_template` (testi fissi nel codice, file di messaggi `en`/`it`).
 
 #### Recensioni
@@ -590,18 +596,29 @@ WhatsApp; campagne solo via email e con consenso email. Modelli WhatsApp (en/it)
 > La recensione diretta la scrive solo il cliente registrato. Sul sito si mostrano anche le recensioni Google (scritte da
 > chiunque): lette da Google Places API, nessuna tabella nostra (Places restituisce voto medio, numero recensioni e al
 > massimo 5 recensioni; per averle tutte servirebbe Google Business Profile API, con accesso del proprietario).
+>
+> Decisioni (2026-11-05, col titolare): la recensione principale è la nostra, il voto ai collaboratori serve. Dopo
+> l'appuntamento completato parte un WhatsApp con un link personale (`appointment.review_token_hash`, niente login):
+> la pagina mostra già i collaboratori che hanno eseguito i servizi (da `appointment_item.staff_id`); dopo l'invio,
+> invito facoltativo a lasciarla anche su Google (`google_review_url`). Supera "solo cliente registrato" e "nessun
+> messaggio automatico". Le recensioni di Fresha (1.822) vanno importate (B-05): `source = 'FRESHA'`, appuntamento e
+> cliente facoltativi.
 
 ```sql
 -- ✅ Approvato (2026-11-03) — aggiunti anche salon_settings.google_review_url / google_place_id
+-- ✅ Modificato (2026-11-05, V9): appointment_id/client_id facoltativi per le importate, source, author_name
 
--- [std] Recensione diretta: una per appuntamento completato, scritta dal cliente registrato dall'app/sito
+-- [std] Recensione diretta: una per appuntamento completato, dal link personale; oppure importata da Fresha
 CREATE TABLE review (
-  appointment_id  uuid NOT NULL UNIQUE REFERENCES appointment(id),
-  client_id       uuid NOT NULL REFERENCES client(id),
+  appointment_id  uuid UNIQUE REFERENCES appointment(id),             -- obbligatorio se source = PLATFORM
+  client_id       uuid REFERENCES client(id),                         -- obbligatorio se source = PLATFORM
+  source          text NOT NULL DEFAULT 'PLATFORM' CHECK (source IN ('PLATFORM','FRESHA')),
+  author_name     text,                                                -- nome mostrato, per le importate
   rating          smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),   -- voto al salone
   comment         text,
   salon_reply     text,
-  published       boolean NOT NULL DEFAULT false                       -- deciso dall'admin
+  published       boolean NOT NULL DEFAULT false,                      -- deciso dall'admin
+  CHECK (source = 'FRESHA' OR (appointment_id IS NOT NULL AND client_id IS NOT NULL))
 );
 
 -- Voto ai singoli collaboratori dell'appuntamento (facoltativo)

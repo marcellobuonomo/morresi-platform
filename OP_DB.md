@@ -58,6 +58,7 @@ Al successivo avvio dell'applicazione Flyway ricrea tutte le tabelle.
 | V6 | `appointment`, `appointment_item` + vincolo `no_staff_overlap` |
 | V7 | `product`, `sale_sequence`, `sale`, `sale_item`, `payment` |
 | V8 | `marketing_campaign`, `notification_log`, `review`, `review_staff_rating`, `audit_log` |
+| V9 | tipo `REVIEW_REQUEST` in `notification_log`, `appointment.review_token_hash`, `review` importabili da Fresha (`source`, `author_name`) |
 
 ### Se una migrazione fallisce in locale
 

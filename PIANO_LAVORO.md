@@ -73,6 +73,9 @@ titolare prima di scrivere codice.
    "grazie della visita" con link alla recensione, promemoria per riprenotare. Impatto: nuovi valori in
    `notification_log.type`. Il messaggio dopo la visita va contro la decisione "la reception chiede la recensione a
    voce", ma è probabilmente la fonte delle 1.822 recensioni.
+   **Deciso (2026-11-05):** conferma via email, promemoria via email e WhatsApp, richiesta di recensione via WhatsApp
+   con link personale alla nostra piattaforma (voto ai collaboratori già indicati), poi invito facoltativo a Google;
+   compleanno via email; nessun altro messaggio. Migrazione V9.
 2. **Lista d'attesa.** Attiva, con prenotazione automatica quando si libera un posto (primo in lista). Impatto: nuova
    tabella (cliente, servizi, collaboratore, giorni e fasce desiderati, stato) e due messaggi automatici.
 3. **Campagne via SMS.** Il salone fa campagne SMS; noi abbiamo previsto solo email. Impatto: `channel` SMS su
@@ -111,7 +114,7 @@ decisioni ancora aperte la spostano in avanti.
 | B-02 | Login email/password e Google, conferma email, reset password, ruoli | Marcello | S1–S2 | B-01 |
 | B-03 | Orari prenotabili: turni ∩ apertura − blocchi − appuntamenti, passo 15 min; salvataggio con controllo sovrapposizioni | Marcello | S5–S6 | A-01, A-02, A-03 |
 | B-04 | Coda `notification_log`, invio programmato, WhatsApp (Twilio) ed email, testi en/it | Andrea | S9–S10 | B-03 |
-| B-05 | Export da Fresha e import di clienti e storico | Marcello | S12 | A-05, A-06 |
+| B-05 | Export da Fresha e import di clienti, storico e recensioni (con voto ai collaboratori) | Marcello | S12 | A-05, A-06 |
 | B-06 | Collaudo e messa online | insieme | S13 | tutto |
 | C-01 | Pagina del salone: foto, indirizzo, orari, link social | Andrea | S1–S2 | B-01 |
 | C-02 | Registrazione cliente, completamento profilo, verifica telefono | Andrea | S2–S3 | B-02 |
@@ -120,7 +123,7 @@ decisioni ancora aperte la spostano in avanti.
 | C-05 | Elenco prenotazioni, disdetta e spostamento fino a 48 h, conferma presenza | Andrea | S6–S7 | C-04 |
 | C-06 | Pagina Stripe, webhook, stato in attesa di pagamento con scadenza, rimborso dell'acconto | Andrea | S8–S9 | C-04, A-06 |
 | C-07 | Campagne email ai clienti con consenso, filtro per etichetta (admin) | Andrea | S10 | B-04 |
-| C-08 | Recensione del cliente, approvazione e risposta dall'admin, recensioni Google | Andrea | S11 | C-05 |
+| C-08 | Pagina recensione dal link WhatsApp (senza login, collaboratori già indicati), invito a Google, approvazione e risposta dall'admin, recensioni Google | Andrea | S11 | C-05 |
 | C-09 | Lista d'attesa con prenotazione automatica (solo se decisa) | Andrea | S12 | decisione del titolare |
 | A-01 | Dati del salone, regole di prenotazione, orari settimanali, chiusure straordinarie | Marcello | S2 | B-02 |
 | A-02 | Categorie, servizi, chi fa cosa con prezzo e durata per collaboratore | Marcello | S2–S3 | B-02 |
@@ -135,8 +138,8 @@ decisioni ancora aperte la spostano in avanti.
 | Domanda | Serve per |
 |---|---|
 | Disdetta a 48 h, prenotazione da 24 h a 5 mesi: restano come su Fresha? | A-01 |
-| Messaggio automatico dopo la visita con link alla recensione: lo vuole? | B-04, C-08 |
-| Altri messaggi automatici: spostato, annullato, no-show, invito a riprenotare? | B-04 |
+| ~~Messaggio automatico dopo la visita con link alla recensione: lo vuole?~~ Sì, via WhatsApp (2026-11-05) | B-04, C-08 |
+| ~~Altri messaggi automatici: spostato, annullato, no-show, invito a riprenotare?~~ No (2026-11-05) | B-04 |
 | Campagne anche via SMS o solo email? | C-07 |
 | Lista d'attesa, codici sconto, prenotazione di gruppo: li usa davvero? | C-04, C-09 |
 | Motivo di cancellazione e stati Arrivato / Iniziato: servono? | A-04 |
