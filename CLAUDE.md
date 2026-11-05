@@ -80,6 +80,10 @@ giorni, con uno solo = griglia oraria); hover, popover sullo slot, scheda al pas
 API: `GET /api/v1/agenda?from=&to=` (max 42 giorni), `/api/v1/agenda/appointments/{id}`, `/api/v1/agenda/services`.
 API ancora aperte: vanno protette con B-02. Avvio frontend e rigenerazione del client OpenAPI: OP_DB.md.
 Mancano nel modello: "collaboratore scelto dal cliente" (♥ di Fresha) e appuntamenti ricorrenti.
+Rifiniti (2026-11-05 sera): colori degli stati presi da Fresha (mancata presentazione #FF8484, intestazione scheda
+#D4163A, badge "N mancata presentazione"), hover card posizionata come Fresha (a sinistra del blocco, a destra
+solo nella prima colonna, centrata in verticale). Possibile aggiunta: sezione "Vendita · Pagato interamente" nella
+hover card (serve il totale vendita nell'API). Colori di Arrivato / In attesa di pagamento scelti da noi.
 **Ripartire da:** feedback sull'agenda; poi B-02 (autenticazione, compresa l'utenza di Sara) e A-04 (salvataggio:
 nuovo appuntamento, cambi di stato, trascinamento e ridimensionamento).
 
