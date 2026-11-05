@@ -38,9 +38,13 @@ tolte `outbox_event` e `idempotency_key`.
 "MORRESI HAIRSTYLIST"). La rilettura di DATA_MODEL.md §5-§10 è stata saltata su richiesta dell'utente: quelle sezioni
 citano ancora cose tolte (sedi, varianti, outbox, ruoli diversi); fa fede §4.
 Operazioni sul DB locale (accesso, reset, Flyway, DBeaver, JAVA_HOME): [OP_DB.md](OP_DB.md).
-**Ripartire da:** scegliere con l'utente la prima funzionalità da costruire (entity JPA + API); proposte: impostazioni
-del salone + orari di apertura, oppure catalogo servizi. Limite di disdetta da
-chiedere all'utente (è in `salon_settings`, ora 24h). In sospeso: magazzino (§4.8), buoni (§4.9).
+**Analisi Fresha e piano di lavoro (2026-11-05):** [PIANO_LAVORO.md](PIANO_LAVORO.md). Lavoro diviso con Andrea:
+area cliente ad Andrea, area admin a Marcello; task con ID (B-/C-/A-) e timeline di 13 settimane dal 2026-11-09.
+Il documento elenca anche le funzioni usate su Fresha che mancano al modello (messaggi automatici in più, lista d'attesa,
+campagne SMS, codici sconto, ...) e le domande per il titolare: decisioni da prendere prima di toccare il DB.
+**Ripartire da:** risposte del titolare alle domande di PIANO_LAVORO.md §5, poi B-01 (scelta frontend) e B-02
+(autenticazione). Su Fresha la disdetta è a 48h (da confermare; in `salon_settings` ora 24h).
+In sospeso: magazzino (§4.8), buoni (§4.9); su Fresha non sono usati.
 
 Modo di lavorare con l'utente: spiegazioni in italiano, semplici e con esempi concreti; proporre, non decidere
 da soli le scelte di dominio.
